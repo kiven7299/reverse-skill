@@ -4,7 +4,7 @@ This repository is a **security-task skill router** (reverse engineering / penet
 
 **Local fork:** https://github.com/kiven7299/reverse-skill  
 **Upstream:** https://github.com/zhaoxuya520/reverse-skill  
-Sync: `FORK.md`. Tool paths: `TOOLS.md` (edit this file when porting machines).
+Sync: `FORK.md`. Upstream update for agents: `UPSTREAM-SYNC.md` (list real deltas, skip language-only, ask which to apply). Tool paths: `TOOLS.md` (edit this file when porting machines).
 
 ## Activation and consent (hard)
 

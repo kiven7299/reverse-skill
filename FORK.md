@@ -15,10 +15,12 @@ git remote -v
 
 ## Daily sync
 
+Agents MUST follow `UPSTREAM-SYNC.md`: fetch, classify real vs language-only deltas, ask the user which buckets to apply. Do not merge `upstream/main` first.
+
 ```text
 git fetch upstream
-git merge upstream/main
-# keep TOOLS.md, FORK.md, and ToolDiscovery overlay on conflict
+git log --oneline HEAD..upstream/main
+# then UPSTREAM-SYNC.md — wait for the user
 git push origin main
 ```
 
