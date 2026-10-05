@@ -1,404 +1,404 @@
 ---
 name: ida-reverse
 description: |
-  IDA Pro 逆向分析辅助技能。当用户提到逆向、反编译、分析二进制/PE/ELF/APK/DLL/SO、破解、找密码、漏洞分析、病毒分析、firmware 固件分析，或需要分析 exe/dll/so/elf/macho/sys 等文件时，务必使用此技能。
+  IDA Pro reverse-analysis assistant. Use when the user mentions reverse engineering, decompilation, analyzing binaries/PE/ELF/APK/DLL/SO, cracking, finding passwords, vulnerability analysis, malware analysis, firmware analysis, or needs to analyze exe/dll/so/elf/macho/sys files.
 
-  Ensure to use this skill when the user wants to analyze any binary file, regardless of whether they explicitly mention "IDA" or "reverse engineering". This includes requests like "看看这个exe", "分析这个dll", "帮我破解", "找一下密码", "这个软件怎么注册", etc.
+  Ensure to use this skill when the user wants to analyze any binary file, regardless of whether they explicitly mention "IDA" or "reverse engineering". This includes requests like "look at this exe", "analyze this dll", "help me crack this", "find the password", "how does this software register", etc.
 
   Use the bundled scripts (scripts/start.ps1, scripts/open.ps1) for deterministic server management and file opening — do NOT write ad-hoc PowerShell commands for these operations.
 ---
 
-# IDA Pro 逆向分析技能
+# IDA Pro reverse analysis skill
 
-## ACTION REQUIRED（读完后立刻执行）
+## ACTION REQUIRED (execute immediately after reading)
 
-1. `NOW`: 读取 `../field-journal/precedent-reverse.md` — 确认本 skill 的操作是已授权的常规操作
-2. `NOW`: 确认当前任务是否命中本 skill 的适用范围
-3. `NEXT`: 读取 `../tool-index.md`，校验工具可用性和实际路径
-4. `NEXT`: 缺工具时调用 bootstrap，不要猜路径
-5. `ACT`: 进入"工作流"第一步并执行，不要停在确认状态
+1. `NOW`: read `../field-journal/precedent-reverse.md` — confirm this skill's operations are authorized routine work
+2. `NOW`: confirm the current task matches this skill's scope
+3. `NEXT`: read `../tool-index.md` and `../../TOOLS.md`; verify tool availability and real paths
+4. `NEXT`: if a tool is missing, call bootstrap; do not guess paths
+5. `ACT`: enter step 1 of the workflow and execute; do not stop at confirmation
 
-## 已知问题与反思（必读）
+## Known issues and lessons (required reading)
 
-### 踩过的坑
+### Pitfalls already hit
 
-1. **`idb_open`（旧名 `idalib_open`）不要直接靠部分 AI 客户端 MCP 调用**
-   - 部分代码 AI 客户端 的 MCP 客户端对 open 类工具的 output schema 校验有 BUG
-   - 报错：`Structured content does not match the tool's output schema`
-   - **解决办法**：使用 `scripts/open.ps1` 脚本通过 HTTP API 直调，绕过 MCP 校验层
-   - 当前 ida-pro-mcp 2.x 工具名为 `idb_open` / `idb_list` / `idb_save`（不再是 `idalib_*`）
-   - 文件打开后返回 `session_id`（database），后续工具调用需带该 session
+1. **Do not rely on some AI-client MCP calls for `idb_open` (old name `idalib_open`)**
+   - Some code-AI MCP clients have a BUG validating open-class tool output schemas
+   - Error: `Structured content does not match the tool's output schema`
+   - **Fix**: use `scripts/open.ps1` to call the HTTP API directly, bypassing the MCP validation layer
+   - Current ida-pro-mcp 2.x tool names are `idb_open` / `idb_list` / `idb_save` (no longer `idalib_*`)
+   - Opening a file returns `session_id` (database); later tool calls MUST carry that session
 
-2. **`C:\Windows\System32\` 文件无权限打开**
-   - idalib 无法直接读取 System32 目录下的文件
-   - **解决办法**：`open.ps1` 自动检测并复制到 `临时目录` 目录后再打开
+2. **Cannot open files under `C:\Windows\System32\`**
+   - idalib cannot read files in System32 directly
+   - **Fix**: `open.ps1` auto-detects and copies to a temp dir before opening
 
-3. **启动服务器命令阻塞对话**
-   - `idalib-mcp` 启动后会持续输出 INFO 日志到控制台
-   - **解决办法**：使用 `scripts/start.ps1`（`-WindowStyle Hidden` 后台静默启动）
-   - 脚本会等待服务就绪后自动退出，不阻塞对话
+3. **Start-server command blocks the conversation**
+   - After start, `idalib-mcp` keeps writing INFO logs to the console
+   - **Fix**: use `scripts/start.ps1` (`-WindowStyle Hidden` silent background start)
+   - The script waits until the service is ready, then exits; it does not block the conversation
 
-4. **MCP 服务器名不能用横线**
-   - 之前用 `ida-pro-mcp` 作为服务器名，可能引起工具注册问题
-   - **当前配置**：服务器名 `idapro`，工具前缀 `idapro_*`
+4. **MCP server names cannot use hyphens**
+   - Using `ida-pro-mcp` as the server name could break tool registration
+   - **Current config**: server name `idapro`, tool prefix `idapro_*`
 
 5. **Remote HTTP vs Local Stdio**
-   - `type:"local"`（stdio）模式：`idalib_open` 同样有 schema 校验问题
-   - `type:"remote"`（HTTP）模式：可以先用脚本直开文件，再用 MCP 工具
-   - **当前方案**：Remote HTTP 模式
+   - `type:"local"` (stdio): `idalib_open` has the same schema validation problem
+   - `type:"remote"` (HTTP): open the file with the script first, then use MCP tools
+   - **Current approach**: Remote HTTP mode
 
-6. **PR #389 修复了部分 schema 问题**
-   - 作者 mrexodia 在 issue #388 后通过 PR #389 合并了修复
-   - 修复了 HTTP 模式下的 structuredContent schema，但 部分代码 AI 客户端 侧校验仍有问题
-   - 已安装最新 `main` 分支版本
+6. **PR #389 fixed part of the schema issue**
+   - Author mrexodia merged a fix in PR #389 after issue #388
+   - HTTP-mode structuredContent schema was fixed, but some code-AI client-side validation still fails
+   - Latest `main` branch is installed
 
-7. **idalib 超时留下孤儿 worker 进程锁文件**
-   - 第一次 `open.ps1` 超时后，idalib 的 python worker 子进程可能变成孤儿，咬着 `.id0`/`.id1`/`.nam` 不放
-   - 后续任何工具或手动拖入 IDA GUI 都会报"权限不足"
-   - **禁止** `taskkill /F /T` 杀进程树——`/T` 会把 GUI `ida.exe` 子进程一起干掉
-   - **解决办法**：`start.ps1` 只在端口无人监听、或 `tools/list` 快速返回但缺 `py_eval`（旧 supervisor）时替换 managed supervisor；RPC 超时且 13337 仍在听视为忙，不杀。开库时 `open.ps1` 写 `opening.lock`，watchdog 不得 `-Force`
-   - **死锁例外**：`tools/list` **连续失败超过 3 分钟**（按 last-healthy 时间戳，不是进程创建时间），且没有 in-flight `opening.lock`、不是 GUI 占端口时，才 `-Force` 替换 supervisor，仍不杀 `ida.exe`
-   - **兜底**：`open.ps1` 检测到旧库被锁自动复制到 Temp 并加 GUID 前缀
+7. **idalib timeout leaves orphan worker process lock files**
+   - After the first `open.ps1` timeout, idalib's python worker child may become an orphan and hold `.id0`/`.id1`/`.nam`
+   - Later tools or dragging into IDA GUI then report "access denied"
+   - **MUST NOT** `taskkill /F /T` the process tree — `/T` also kills GUI `ida.exe` children
+   - **Fix**: `start.ps1` replaces the managed supervisor only when nothing listens on the port, or `tools/list` returns quickly but lacks `py_eval` (old supervisor); RPC timeout with 13337 still listening is busy, do not kill. While opening, `open.ps1` writes `opening.lock`; watchdog MUST NOT `-Force`
+   - **Deadlock exception**: only if `tools/list` **fails continuously for more than 3 minutes** (by last-healthy timestamp, not process create time), and there is no in-flight `opening.lock`, and GUI does not own the port, then `-Force` replace supervisor; still do not kill `ida.exe`
+   - **Fallback**: `open.ps1` detects a locked old DB, copies to Temp with a GUID prefix
 
-8. **带自动分析打开看起来像卡死**
-   - `idalib_open(run_auto_analysis=true)` 可能长时间不回包，但后端实际上仍在继续打开和分析
-   - 之前用户侧看到的是“PowerShell 一直无输出”，容易误判成脚本卡死
-   - **当前解决办法**：`open.ps1` 新增 `-TimeoutSeconds`，并改为后台请求 + 前台轮询 + 定时进度输出
-   - 轮询到会话已就绪时会提前返回 `OK:文件名:session_id`，超时则返回 `ERR:open_timeout_xxs`
+8. **Open with auto-analysis looks hung**
+   - `idalib_open(run_auto_analysis=true)` may not reply for a long time while the backend keeps opening and analyzing
+   - Users previously saw "PowerShell has no output" and misread it as a hung script
+   - **Current fix**: `open.ps1` added `-TimeoutSeconds`, background request + foreground poll + periodic progress
+   - When the session is ready it returns early `OK:filename:session_id`; timeout returns `ERR:open_timeout_xxs`
 
-9. **HTTP MCP 会在登录后静默退出**
-   - Cursor/Claude 的 `type: http` 不会代为拉起进程；旧计划任务只在登录时跑一次
-   - `pythonw` 无控制台，崩溃时 Application 日志也是空的
-   - **解决办法**：`start.ps1` 默认健康则复用；`watchdog.ps1` 每分钟巡检；日志在 `%LOCALAPPDATA%\reverse-skill\ida-mcp\`
-   - 安装：`scripts/install-autostart.ps1`。HTTP 客户端若启动时端口还没起来，仍需在 MCP 面板手动刷新一次
+9. **HTTP MCP exits silently after login**
+   - Cursor/Claude `type: http` does not spawn the process; old scheduled tasks ran once at login
+   - `pythonw` has no console; Application log is empty on crash
+   - **Fix**: `start.ps1` reuses when healthy; `watchdog.ps1` inspects every minute; logs at `%LOCALAPPDATA%\reverse-skill\ida-mcp\`
+   - Install: `scripts/install-autostart.ps1`. If the HTTP client starts before the port is up, still refresh once in the MCP panel
 
-10. **Streamable HTTP GET `/mcp` 会卡住单线程 supervisor**
-   - 部分 HTTP MCP 客户端会对 `/mcp` 发长连接 GET（SSE）。stock `idalib_supervisor` 用 `background=False` 的 `HTTPServer`，一次只处理一个请求
-   - 结果：`tools/list` 超时，客户端把 `idapro` 标成 error
-   - **解决办法**：`run-supervisor.py` 把 HTTP 换成 `ThreadingHTTPServer` 并接受 GET `/mcp`；补丁失败则跳过并仍启动 supervisor。卡住时用 `scripts/recover.ps1`（立刻 `-Force`）
+10. **Streamable HTTP GET `/mcp` stalls a single-thread supervisor**
+    - Some HTTP MCP clients send a long-lived GET (SSE) to `/mcp`. Stock `idalib_supervisor` uses `HTTPServer` with `background=False` and handles one request at a time
+    - Result: `tools/list` times out; the client marks `idapro` as error
+    - **Fix**: `run-supervisor.py` switches HTTP to `ThreadingHTTPServer` and accepts GET `/mcp`; if the patch fails, skip it and still start the supervisor. When stuck, use `scripts/recover.ps1` (immediate `-Force`)
 
-### 工作流程原则
+### Workflow principles
 
-| 步骤 | 做什么 | 用什么 |
+| Step | What | With |
 |------|--------|--------|
-| 1 | 确保 HTTP 服务器在运行 | `scripts/start.ps1`（无参数） |
-| 2 | 打开目标二进制文件 | `scripts/open.ps1 -Path "xxx.exe"` |
-| 3 | 使用 MCP 分析工具 | 直接调用 `idapro_*` / HTTP tools（约 65 个，视版本而定） |
-| 4 | 分析完毕 | 工具自动可用 |
+| 1 | Ensure the HTTP server is running | `scripts/start.ps1` (no args) |
+| 2 | Open the target binary | `scripts/open.ps1 -Path "xxx.exe"` |
+| 3 | Use MCP analysis tools | Call `idapro_*` / HTTP tools directly (~65, version-dependent) |
+| 4 | After analysis | Tools stay available |
 
-## 脚本资源
+## Script resources
 
-### start.ps1 — 启动 MCP HTTP 服务器
+### start.ps1 — start MCP HTTP server
 
-路径：`scripts/start.ps1`
+Path: `scripts/start.ps1`
 
-- 自动解析 `IDADIR`（环境变量 / 便携版桌面路径 / 常见安装路径）
-- 优先用 IDA 自带 `Python314\python.exe -m ida_pro_mcp.idalib_supervisor`
-- 默认先探测 `http://127.0.0.1:13337/mcp`，健康则输出 `OK:<n>:reuse` 并退出
-- 13337 在听但 `tools/list` 超时 → `WARN:busy` / `OK:busy:reuse`，**不杀**（开库或 GUI 占用时无法回包）
-- `tools/list` **连续失败超过 3 分钟**（last-healthy 时间戳）且无 `opening.lock` → 视为死锁，输出 `INFO:deadlock` 并 `-Force` 替换 supervisor。进行中的 `idb_open` 和 GUI 不会走这条路径
-- 仅在端口无人监听、缺 `py_eval`、或上述死锁时替换 managed supervisor；**永不杀 `ida.exe`，不用 `taskkill /T`**
-- GUI 占用 13337 时输出 `WARN:gui_busy` 并退出，不另起 supervisor
-- 成功输出 `OK:<工具数>`（当前约 66），失败输出 `ERR:timeout`
-- supervisor 日志：`%LOCALAPPDATA%\reverse-skill\ida-mcp\supervisor.log`
-- 服务器在后台运行，不阻塞对话
+- Auto-resolve `IDADIR` (env / portable desktop path / common install paths)
+- Prefer IDA-bundled `Python314\python.exe -m ida_pro_mcp.idalib_supervisor`
+- Default: probe `http://127.0.0.1:13337/mcp`; if healthy, print `OK:<n>:reuse` and exit
+- 13337 listening but `tools/list` timeout → `WARN:busy` / `OK:busy:reuse`, **do not kill** (open or GUI occupancy cannot reply)
+- `tools/list` **fails continuously more than 3 minutes** (last-healthy timestamp) and no `opening.lock` → deadlock, print `INFO:deadlock` and `-Force` replace supervisor. In-flight `idb_open` and GUI do not take this path
+- Replace managed supervisor only when the port is unused, `py_eval` is missing, or the deadlock above; **never kill `ida.exe`, never `taskkill /T`**
+- GUI owns 13337 → print `WARN:gui_busy` and exit; do not start another supervisor
+- Success prints `OK:<tool-count>` (currently ~66); failure prints `ERR:timeout`
+- Supervisor log: `%LOCALAPPDATA%\reverse-skill\ida-mcp\supervisor.log`
+- Server runs in the background and does not block the conversation
 
-**调用方式**：
+**Invocation**:
 ```
 powershell -File "<skill-root>\ida-reverse\scripts\start.ps1"
 ```
 
-### watchdog.ps1 / recover.ps1 / install-autostart.ps1 — 保活
+### watchdog.ps1 / recover.ps1 / install-autostart.ps1 — keep-alive
 
-- `watchdog.ps1`：探测 13337；健康 reuse（并刷新 last-healthy）；GUI / `open.ps1` 开库锁 / last-healthy 未满 3 分钟的 busy → reuse；只有 `tools/list` 连续失败超过 3 分钟才 `start.ps1 -Force`
-- `recover.ps1`：立刻 `start.ps1 -Force`（不杀 `ida.exe`）。HTTP 客户端把 `idapro` 标成 error 时用这个
-- `install-autostart.ps1`：注册计划任务 `reverse-skill-ida-mcp`（登录 + 每分钟）
-- 日志：`%LOCALAPPDATA%\reverse-skill\ida-mcp\watchdog.log`
+- `watchdog.ps1`: probe 13337; healthy reuse (and refresh last-healthy); GUI / `open.ps1` open lock / busy with last-healthy under 3 minutes → reuse; only if `tools/list` fails continuously more than 3 minutes, `start.ps1 -Force`
+- `recover.ps1`: immediate `start.ps1 -Force` (does not kill `ida.exe`). Use when the HTTP client marks `idapro` as error
+- `install-autostart.ps1`: register scheduled task `reverse-skill-ida-mcp` (logon + every minute)
+- Log: `%LOCALAPPDATA%\reverse-skill\ida-mcp\watchdog.log`
 
-### open.ps1 — 打开二进制文件
+### open.ps1 — open a binary
 
-路径：`scripts/open.ps1`
+Path: `scripts/open.ps1`
 
-- 通过 HTTP API 直调 `idb_open`，绕过 MCP schema 校验
-- 自动检测 System32 路径并复制到临时目录
-- 自动清理同名旧数据库文件（`.id0`/`.id1`/`.nam`/`.til`/`.i64`）
-- 旧库被锁时自动降级：复制到 Temp 加 GUID 前缀后打开，不报错
-- 将打开请求放到后台执行，避免长时间同步等待导致脚本无响应
-- 支持 `-TimeoutSeconds`，超时后返回 `ERR:open_timeout_xxs`，不会无限卡住
-- 每隔 10 秒输出一次 `INFO:opening:已用时/超时秒数`，便于判断仍在分析中
-- 成功输出 `OK:文件名:session_id`，降级时加 `(temp copy)` 标记
-- 失败时自动重试走 Temp 副本
+- Call `idb_open` via HTTP API, bypass MCP schema validation
+- Auto-detect System32 paths and copy to a temp dir
+- Auto-clean same-name old DB files (`.id0`/`.id1`/`.nam`/`.til`/`.i64`)
+- If the old DB is locked, degrade automatically: copy to Temp with a GUID prefix and open; do not error
+- Run the open request in the background so long sync waits do not freeze the script
+- Supports `-TimeoutSeconds`; on timeout returns `ERR:open_timeout_xxs` instead of hanging forever
+- Every 10 seconds prints `INFO:opening:elapsed/timeout-seconds` so analysis-in-progress is visible
+- Success prints `OK:filename:session_id`; degrade adds `(temp copy)`
+- On failure, auto-retry via the Temp copy
 
-**调用方式**：
+**Invocation**:
 ```
 powershell -File "<skill-root>\ida-reverse\scripts\open.ps1" -Path "C:\path\to\file.exe"
 ```
 
-**可选参数**：
+**Optional args**:
 ```
-# 指定 SessionId
+# Specify SessionId
 powershell -File "scripts\open.ps1" -Path "file.exe" -SessionId "my_session"
 
-# 跳过自动分析（大文件推荐）
+# Skip auto-analysis (recommended for large files)
 powershell -File "scripts\open.ps1" -Path "large.exe" -NoAutoAnalysis
 
-# 设置超时，避免带自动分析时长时间无返回
+# Set timeout so auto-analysis does not stall with no return
 powershell -File "scripts\open.ps1" -Path "file.exe" -TimeoutSeconds 600
 ```
 
-**输出约定**：
+**Output contract**:
 ```
-# 分析进行中（每 10 秒输出一次）
+# Analysis in progress (every 10 seconds)
 INFO:opening:11/600s
 
-# 成功打开
+# Opened successfully
 OK:sample.exe:abcd1234
 
-# 成功打开，但因锁文件降级到 Temp 副本
+# Opened successfully, degraded to Temp copy because of lock files
 OK:1234abcd-sample.exe:abcd1234 (temp copy)
 
-# 达到超时上限
+# Hit timeout cap
 ERR:open_timeout_600s
 ```
 
-**实测说明**：
-- `Snipaste.exe` 带自动分析实测约 `324s` 才返回成功，属于“分析很久”而不是“脚本死锁”
-- 因此遇到 GUI 程序或较复杂样本时，建议优先显式设置 `-TimeoutSeconds 600`
+**Measured notes**:
+- `Snipaste.exe` with auto-analysis took about `324s` to succeed; that is "analysis is slow", not "script deadlock"
+- For GUI programs or complex samples, prefer explicit `-TimeoutSeconds 600`
 
-## 核心工具列表
+## Core tool list
 
-### 概况分析（第一步）
-- `idapro_survey_binary(detail_level="minimal")` — 快速概况：函数数、字符串、段、入口点、导入分类（加密/网络/文件IO）
-- `idapro_list_funcs(queries)` — 列出函数（分页、按名称过滤）
-- `idapro_list_globals(queries)` — 列出全局变量
-- `idapro_entity_query(kind, filter)` — 统一查询：functions/globals/imports/strings/names
+### Overview (step 1)
+- `idapro_survey_binary(detail_level="minimal")` — fast overview: function count, strings, segments, entry, import classes (crypto/network/file IO)
+- `idapro_list_funcs(queries)` — list functions (paged, filter by name)
+- `idapro_list_globals(queries)` — list globals
+- `idapro_entity_query(kind, filter)` — unified query: functions/globals/imports/strings/names
 
-### 反编译与反汇编
-- `idapro_decompile(addr)` — 反编译为伪代码
-- `idapro_disasm(addr, max_instructions=N)` — 反汇编
-- `idapro_analyze_function(addr, include_asm=false)` — 综合分析（伪代码+字符串+常量+调用者+被调用者+块）
-- `idapro_func_profile(queries)` — 函数概要指标
+### Decompile and disassembly
+- `idapro_decompile(addr)` — decompile to pseudocode
+- `idapro_disasm(addr, max_instructions=N)` — disassemble
+- `idapro_analyze_function(addr, include_asm=false)` — combined analysis (pseudocode+strings+constants+callers+callees+blocks)
+- `idapro_func_profile(queries)` — function summary metrics
 
-### 交叉引用与数据流
-- `idapro_xrefs_to(addrs)` — 查谁引用目标地址
-- `idapro_xref_query(addr, direction)` — 高级 xref 查询（方向/类型过滤）
-- `idapro_callees(addrs)` — 子函数列表
-- `idapro_callgraph(roots, max_depth)` — 调用图
-- `idapro_trace_data_flow(addr, direction, max_depth)` — 数据流追踪（forward/backward）
+### Cross-refs and data flow
+- `idapro_xrefs_to(addrs)` — who references the target address
+- `idapro_xref_query(addr, direction)` — advanced xref query (direction/type filter)
+- `idapro_callees(addrs)` — callee list
+- `idapro_callgraph(roots, max_depth)` — call graph
+- `idapro_trace_data_flow(addr, direction, max_depth)` — data-flow trace (forward/backward)
 
-### 搜索
-- `idapro_find_regex(pattern, limit)` — 正则搜字符串
-- `idapro_search_text(pattern)` — 在反汇编列表中搜文本
-- `idapro_find_bytes(patterns, limit)` — 字节模式搜索（支持 ?? 通配符）
-- `idapro_find(type, targets)` — 高级搜索（立即数/字符串/引用）
+### Search
+- `idapro_find_regex(pattern, limit)` — regex search strings
+- `idapro_search_text(pattern)` — search text in the disassembly listing
+- `idapro_find_bytes(patterns, limit)` — byte-pattern search (supports ?? wildcards)
+- `idapro_find(type, targets)` — advanced search (immediates/strings/refs)
 
-### 内存与数据
-- `idapro_get_bytes(addrs)` — 读原始字节
-- `idapro_get_string(addrs)` — 读字符串
-- `idapro_get_int(queries)` — 读整数值
-- `idapro_get_global_value(queries)` — 读全局变量值
-- `idapro_read_struct(queries)` — 读结构体字段值
-- `idapro_search_structs(filter)` — 搜索结构体
+### Memory and data
+- `idapro_get_bytes(addrs)` — read raw bytes
+- `idapro_get_string(addrs)` — read strings
+- `idapro_get_int(queries)` — read integer values
+- `idapro_get_global_value(queries)` — read global values
+- `idapro_read_struct(queries)` — read struct field values
+- `idapro_search_structs(filter)` — search structs
 
-### 修改操作
-- `idapro_set_comments(items)` — 添加注释（反汇编+反编译双向同步）
-- `idapro_append_comments(items)` — 追加注释
-- `idapro_rename(batch)` — 批量重命名（函数/全局/局部/栈变量）
-- `idapro_patch_asm(items)` — Patch 汇编指令
-- `idapro_patch(patches)` — Patch 字节
-- `idapro_define_func(items)` — 定义函数
-- `idapro_undefine(items)` — 取消定义
-- `idapro_define_code(items)` — 将字节转为代码
+### Mutations
+- `idapro_set_comments(items)` — add comments (disasm+decompile two-way sync)
+- `idapro_append_comments(items)` — append comments
+- `idapro_rename(batch)` — batch rename (functions/globals/locals/stack vars)
+- `idapro_patch_asm(items)` — Patch assembly
+- `idapro_patch(patches)` — Patch bytes
+- `idapro_define_func(items)` — define functions
+- `idapro_undefine(items)` — undefine
+- `idapro_define_code(items)` — turn bytes into code
 
-### 类型系统
-- `idapro_declare_type(decls)` — 声明 C 结构体/枚举/联合体
-- `idapro_set_type(edits)` — 应用类型到函数/全局/局部
-- `idapro_infer_types(addrs)` — 推断类型
-- `idapro_type_query(queries)` — 查询已声明类型
-- `idapro_type_inspect(queries)` — 查看类型详情
+### Type system
+- `idapro_declare_type(decls)` — declare C structs/enums/unions
+- `idapro_set_type(edits)` — apply types to functions/globals/locals
+- `idapro_infer_types(addrs)` — infer types
+- `idapro_type_query(queries)` — query declared types
+- `idapro_type_inspect(queries)` — inspect type details
 
-### 栈帧
-- `idapro_stack_frame(addrs)` — 查看栈帧变量
-- `idapro_declare_stack(items)` — 声明栈变量
-- `idapro_delete_stack(items)` — 删除栈变量
+### Stack frame
+- `idapro_stack_frame(addrs)` — view stack-frame vars
+- `idapro_declare_stack(items)` — declare stack vars
+- `idapro_delete_stack(items)` — delete stack vars
 
-### 签名
-- `idapro_make_signature(addrs)` — 为地址生成唯一字节签名
-- `idapro_make_signature_for_function(addrs)` — 为函数生成签名
-- `idapro_find_xref_signatures(addrs)` — 为引用地址的代码生成签名
+### Signatures
+- `idapro_make_signature(addrs)` — unique byte signature for an address
+- `idapro_make_signature_for_function(addrs)` — signature for a function
+- `idapro_find_xref_signatures(addrs)` — signatures for code that references an address
 
-### 调试器（需要 ?ext=dbg）
-- `idapro_open_file(file_path)` — 在 GUI IDA 实例中打开文件
-- 调试器工具默认隐藏，可通过 URL 参数 `?ext=dbg` 启用
+### Debugger (needs ?ext=dbg)
+- `idapro_open_file(file_path)` — open a file in a GUI IDA instance
+- Debugger tools are hidden by default; enable with URL param `?ext=dbg`
 
-### 会话管理（ida-pro-mcp 2.x）
-- `idapro_idb_open` / HTTP `idb_open` — ⚠️ 建议用 `open.ps1` 打开
-- `idapro_idb_list` / HTTP `idb_list` — 列出所有 session
-- `idapro_idb_save` / HTTP `idb_save` — 保存数据库
-- 多数分析工具需要 `database=<session_id>` 参数（open.ps1 输出的 session）
+### Session management (ida-pro-mcp 2.x)
+- `idapro_idb_open` / HTTP `idb_open` — ⚠️ prefer `open.ps1`
+- `idapro_idb_list` / HTTP `idb_list` — list all sessions
+- `idapro_idb_save` / HTTP `idb_save` — save the database
+- Most analysis tools need `database=<session_id>` (the session from open.ps1)
 
-### 其他
-- `idapro_int_convert(inputs)` — 进制转换（**必须用这个，不要自己算进制！**）
-- `idapro_export_funcs(addrs, format)` — 导出函数（json/c_header/prototypes）
-- `idapro_py_eval(code)` — 在 IDA 上下文执行 Python
-- `idapro_server_health()` — 服务器健康检查
-- `idapro_server_warmup()` — 预热子系统（字符串缓存、Hex-Rays 等）
+### Other
+- `idapro_int_convert(inputs)` — radix convert (**MUST use this; do not convert radices yourself!**)
+- `idapro_export_funcs(addrs, format)` — export functions (json/c_header/prototypes)
+- `idapro_py_eval(code)` — run Python in IDA context
+- `idapro_server_health()` — server health check
+- `idapro_server_warmup()` — warm subsystems (string cache, Hex-Rays, etc.)
 
-## 逆向分析完整工作流
+## Full reverse-analysis workflow
 
-### Step 1: 启动服务器
+### Step 1: Start the server
 
-**路径 A — Headless idalib（需要有效 license）**
+**Path A — Headless idalib (needs a valid license)**
 ```
 powershell -File "scripts/start.ps1"
 ```
-输出 `OK:<工具数>`（当前约 65）表示就绪。
+`OK:<tool-count>` (currently ~65) means ready.
 
-**路径 B — GUI + 插件（idalib license 失败或需要交互分析时）**
+**Path B — GUI + plugin (idalib license failed or interactive analysis needed)**
 ```
-powershell -File "scripts/start-gui.ps1" -Path "C:\目标.exe"
+powershell -File "scripts/start-gui.ps1" -Path "C:\target.exe"
 ```
-或双击便携版 `Launch-IDA-Pro.cmd`，在 IDA 中打开样本。
+Or double-click portable `Launch-IDA-Pro.cmd` and open the sample in IDA.
 
-确认 Output 窗口出现 `[MCP] ... port=13337` 后，MCP 工具即可用。
+After the Output window shows `[MCP] ... port=13337`, MCP tools are usable.
 
-通用对接步骤见 `LOCAL-SETUP.md`。
+Generic attach steps: `LOCAL-SETUP.md`.
 
-### Step 2: 打开文件
+### Step 2: Open the file
 
-Headless：
+Headless:
 ```
-powershell -File "scripts/open.ps1" -Path "C:\目标.exe" -TimeoutSeconds 600
+powershell -File "scripts/open.ps1" -Path "C:\target.exe" -TimeoutSeconds 600
 ```
-输出 `OK:文件名:session_id` 表示成功（后带 `(temp copy)` 表示自动降级到临时副本）。
+`OK:filename:session_id` means success (trailing `(temp copy)` means auto-degrade to a temp copy).
 
-若出现 `ERR:idalib_license:...`，改用路径 B（GUI 模式），不要反复重试 open.ps1。
+If `ERR:idalib_license:...` appears, switch to path B (GUI mode); do not keep retrying open.ps1.
 
-GUI 模式：在 IDA 里直接 Open 样本即可，无需 open.ps1。
+GUI mode: Open the sample in IDA; open.ps1 is not needed.
 
-### Step 3: 全局概览（含导入表硬门）
+### Step 3: Global overview (includes import-table hard gate)
 ```
 idapro_survey_binary(detail_level="minimal")
 ```
-关注：
-- 架构（x86/x64/ARM）
-- 入口点（main/WinMain/DllMain）
-- 有趣的字符串（URL、路径、错误消息）
-- **导入分类（MUST）**：加密函数 / 网络 API / 文件操作 / 进程注入 / 注册表 — 必须落成 Evidence（建议 id：`E-imports`），可用 `idapro_entity_query(kind="imports")` 或 survey 输出中的 imports 段
-- **DLL/SYS**：导出表与导入表并列（Evidence `E-exports`）
-- **.NET**：无传统 IAT 时用模块/元数据/托管引用摘要作为等价锚点写入 E-imports 语义槽
-- **干净导入表**：注明动态加载嫌疑，推动动态 API 断点验证
-- 热门函数（高 xref 计数的函数通常是关键逻辑）
+Watch:
+- Architecture (x86/x64/ARM)
+- Entry (main/WinMain/DllMain)
+- Interesting strings (URL, paths, error messages)
+- **Import classes (MUST)**: crypto / network API / file ops / process injection / registry — MUST land as Evidence (suggested id: `E-imports`); use `idapro_entity_query(kind="imports")` or the imports section of survey output
+- **DLL/SYS**: export table alongside import table (Evidence `E-exports`)
+- **.NET**: no classic IAT; write module/metadata/managed-ref summary as the equivalent anchor into the E-imports semantic slot
+- **Clean import table**: note dynamic-load suspicion; push dynamic API breakpoint verification
+- Hot functions (high xref count is often key logic)
 
-**硬门禁**：未将 imports 视图/分类摘要（或合法等价锚点）写入 Evidence 前，MUST NOT 进入 Step 4 深挖结论，MUST NOT 声称 survey 完成。导入表为空或查询失败时仍 MUST 记录失败现象。加壳 IAT 修复失败时 MUST 记 `E-iat-repair-fail` 并转动态调试抓 API，禁止静态死磕。用户要求重做导入表/IAT 检查时 MUST 重做被点名步骤（阻塞时可行性门闩：说明+确认；强制则标 quality=unreadable），禁止改换无关步骤。
+**Hard gate**: MUST NOT enter Step 4 deep conclusions, and MUST NOT claim survey complete, until the imports view/class summary (or a legal equivalent anchor) is written as Evidence. If the import table is empty or the query fails, still MUST record the failure. If packed IAT repair fails, MUST record `E-iat-repair-fail` and switch to dynamic debug to catch APIs; MUST NOT grind statically. If the user asks to redo import-table/IAT checks, MUST redo the named step (on block: feasibility latch — explain + confirm; if forced, mark quality=unreadable); MUST NOT swap in unrelated steps.
 
-### Step 4: 深入关键函数
+### Step 4: Deep-dive key functions
 ```
-idapro_analyze_function(addr="关键函数名")
+idapro_analyze_function(addr="key_function_name")
 ```
-或：
+or:
 ```
-idapro_decompile(addr="函数名")
-idapro_disasm(addr="函数名", max_instructions=50)
-```
-
-### Step 5: 数据流和交叉引用
-```
-idapro_xrefs_to(addrs="关键地址/字符串")
-idapro_callgraph(roots=["关键函数"], max_depth=3)
-idapro_trace_data_flow(addr="关键地址", direction="backward", max_depth=5)
+idapro_decompile(addr="function_name")
+idapro_disasm(addr="function_name", max_instructions=50)
 ```
 
-### Step 6: 记录和优化
+### Step 5: Data flow and cross-refs
 ```
-idapro_set_comments(items=[{"addr": "0x140001000", "comment": "你的理解"}])
-idapro_rename(batch={"func": [{"addr": "函数地址", "name": "有意义的名字"}]})
+idapro_xrefs_to(addrs="key_address/string")
+idapro_callgraph(roots=["key_function"], max_depth=3)
+idapro_trace_data_flow(addr="key_address", direction="backward", max_depth=5)
 ```
 
-### Step 7: 输出报告
-分析完成后，生成 `report.md` 记录发现和步骤。
+### Step 6: Record and refine
+```
+idapro_set_comments(items=[{"addr": "0x140001000", "comment": "your understanding"}])
+idapro_rename(batch={"func": [{"addr": "function_address", "name": "meaningful_name"}]})
+```
 
-## Prompt 工程准则
+### Step 7: Write the report
+After analysis, generate `report.md` with findings and steps.
 
-1. **不要手动算进制** — 任何时候需要转换数字，用 `idapro_int_convert`
-2. **先 survey 后深入** — 先看概况再针对性分析
-3. **持续加注释和重命名** — 分析过程中不断更新函数名和变量名，提升后续分析的准确性
-4. **跟踪交叉引用** — 发现有趣的数据/字符串，用 `xrefs_to` 看谁引用了它
-5. **遇到混淆代码** — 先做字符串解密、导入哈希去除、控制流平坦化去除等预处理
-6. **C++ STL 代码** — 用 FLIRT/Lumina 识别库函数后，再分析业务逻辑
-7. **不要暴力破解** — 分析应从反汇编中推导解决方案，用简单 Python 辅助计算
-8. **遇到 "No database bound"** — 还没有打开任何二进制文件，先执行 `open.ps1`
-9. **遇到 "Failed to open database"** — 可能是旧数据库文件被锁，`open.ps1` 会自动降级到 Temp 副本（输出含 `(temp copy)` 标记）
-10. **带自动分析打开 GUI/复杂样本时** — 默认加 `-TimeoutSeconds 600`，不要把长时间 `INFO:opening:...` 误判成脚本卡死
+## Prompt engineering rules
+
+1. **Do not convert radices by hand** — whenever a number must be converted, use `idapro_int_convert`
+2. **Survey before deep dive** — overview first, then targeted analysis
+3. **Keep adding comments and renames** — update function and variable names during analysis to improve later accuracy
+4. **Follow cross-refs** — on interesting data/strings, use `xrefs_to` to see who references them
+5. **On obfuscated code** — preprocess first: string decrypt, import-hash strip, control-flow flattening removal
+6. **C++ STL code** — identify library functions with FLIRT/Lumina, then analyze business logic
+7. **Do not brute-force** — derive the solution from disassembly; use simple Python only as a helper
+8. **On "No database bound"** — no binary is open yet; run `open.ps1` first
+9. **On "Failed to open database"** — old DB files may be locked; `open.ps1` auto-degrades to a Temp copy (output includes `(temp copy)`)
+10. **Opening GUI/complex samples with auto-analysis** — default add `-TimeoutSeconds 600`; do not treat long `INFO:opening:...` as a hung script
 
 ---
 
-## 路由上下文
+## Routing context
 
-**上游入口**: `skills/SKILL.md`（总控）、`routing.md`
-**上游备选**: `radare2/`（如果不想开 IDA，可以先 r2 快速侦察）
-**下游出口**:
-- 需 Frida 动态验证 → `reverse-engineering/tools-dynamic.md`
-- 需符号执行/angr → `reverse-engineering/tools-dynamic.md`
-- 需通用逆向方法论 → `reverse-engineering/SKILL.md`
+**Upstream entry**: `skills/SKILL.md` (master), `routing.md`
+**Upstream fallback**: `radare2/` (if IDA should not be opened, r2 for fast recon first)
+**Downstream exits**:
+- Need Frida dynamic verify → `reverse-engineering/tools-dynamic.md`
+- Need symbolic execution/angr → `reverse-engineering/tools-dynamic.md`
+- Need general RE methodology → `reverse-engineering/SKILL.md`
 
-**同级关联模块**: `radare2/`（IDA 不可用时替代方案）
+**Peer modules**: `radare2/` (fallback when IDA is unavailable)
 
 ---
 
-## 按需自举（On-Demand Bootstrap）
+## On-Demand Bootstrap
 
-本 skill 的入口脚本已接入统一自举系统。
+This skill's entry scripts are wired to the unified bootstrap system.
 
-### 自动化能力边界
+### Automation bounds
 
-| 工具 | 可自动安装 | 安装方式 | 说明 |
+| Tool | Auto-install | Method | Notes |
 |------|-----------|---------|------|
-| idalib-mcp | ✓ | pip install (from GitHub) | `start.ps1` 缺失时自动安装 |
-| IDA Pro 本体 | ✗ | 商业软件，需手动安装 | 设置 `IDADIR` 环境变量指向安装目录 |
+| idalib-mcp | ✓ | pip install (from GitHub) | Auto-install when missing in `start.ps1` |
+| IDA Pro itself | ✗ | Commercial; install manually | Set `IDADIR` to the install dir |
 
-### 安装步骤（已验证）
+### Install steps (verified)
 
 ```cmd
-# 1. 设置 IDA 路径（替换为你的实际 IDA 安装目录）
-setx IDADIR "<你的IDA安装目录>"
+# 1. Set IDA path (replace with your actual IDA install dir)
+setx IDADIR "<your-IDA-install-dir>"
 
-# 2. 从 GitHub 安装 ida-pro-mcp（PyPI 上的 ida-mcp 是另一个项目，不要装错！）
+# 2. Install ida-pro-mcp from GitHub (PyPI ida-mcp is a different project; do not install the wrong one!)
 pip install git+https://github.com/mrexodia/ida-pro-mcp.git
 
-# 3. 安装 IDA 插件（选择 Streamable HTTP + Global + 全选客户端）
+# 3. Install the IDA plugin (choose Streamable HTTP + Global + all clients)
 ida-pro-mcp --install
 
-# 4. 重启 IDA Pro，打开目标文件
-# 插件自动监听 127.0.0.1:13337
+# 4. Restart IDA Pro, open the target file
+# Plugin listens on 127.0.0.1:13337 automatically
 
-# 5. 验证
+# 5. Verify
 ida-pro-mcp --config
 ```
 
-> ⚠️ **注意**：PyPI 上的 `ida-mcp` 包（作者 jtsylve）是另一个项目，不是我们需要的。
-> 必须从 GitHub 安装 `mrexodia/ida-pro-mcp`。
+> ⚠️ **Note**: The PyPI `ida-mcp` package (author jtsylve) is a different project.
+> MUST install `mrexodia/ida-pro-mcp` from GitHub.
 
-### 自举触发点
+### Bootstrap triggers
 
-- `scripts/start.ps1`：缺 `idalib-mcp` 时自动调用 `bootstrap-reverse.ps1`
-- MCP 注册：bootstrap 会自动把 `idapro` 写入 Claude MCP 配置
+- `scripts/start.ps1`: missing `idalib-mcp` → auto-call `bootstrap-reverse.ps1`
+- MCP registration: bootstrap auto-writes `idapro` into Claude MCP config
 
-### 前置条件
+### Prerequisites
 
-- IDA Pro 已安装且 `IDADIR` 环境变量已设置（或脚本内默认路径正确）
-- 推荐使用 IDA 自带 Python314 中的 `ida-pro-mcp`（便携版已内置）
-- 常见本机配置：
-  - User env `IDADIR` → IDA 安装目录（含 `ida.exe`）
-  - 可选 `~\Tools\bin\idalib-mcp.cmd` / `ida-pro-mcp.cmd` 包装器
-  - 客户端 MCP 服务器名只留 `idapro` → `http://127.0.0.1:13337/mcp`
+- IDA Pro installed and `IDADIR` set (or the script default path is correct)
+- Prefer `ida-pro-mcp` in IDA-bundled Python314 (portable build already includes it)
+- Common local config:
+  - User env `IDADIR` → IDA install dir (contains `ida.exe`)
+  - Optional `~\Tools\bin\idalib-mcp.cmd` / `ida-pro-mcp.cmd` wrappers
+  - Client MCP server name only `idapro` → `http://127.0.0.1:13337/mcp`
 
 
-## 任务完成自检（声称完成前 MUST 通过）
+## Task-complete self-check (MUST pass before claiming done)
 
-- [ ] 我是否执行了工作流中的每一步（而不是只阅读）？
-- [ ] survey/imports 是否已写入 Evidence（E-imports 或等价）？DLL/SYS 是否含 E-exports？IAT 失败是否记 E-iat-repair-fail？
-- [ ] 用户若要求重做导入表/IAT，是否重做了同一步？
-- [ ] 我是否基于 `tool-index` 使用了真实工具路径？
-- [ ] 我是否产出了可复现证据（命令/脚本/截图/报告）？
-- [ ] 我是否完成并回写了 RULES 要求的 Checklist 项？
+- [ ] Did I execute every workflow step (not only read)?
+- [ ] Are survey/imports written as Evidence (E-imports or equivalent)? DLL/SYS includes E-exports? IAT failure recorded as E-iat-repair-fail?
+- [ ] If the user asked to redo the import table/IAT, was the same step redone?
+- [ ] Did I use real tool paths from `tool-index`?
+- [ ] Did I produce reproducible evidence (commands/scripts/screenshots/report)?
+- [ ] Did I complete and write back RULES checklist items?

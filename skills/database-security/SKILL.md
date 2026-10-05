@@ -5,52 +5,52 @@ description: Use for authorized database security assessment covering PostgreSQL
 
 # Database Security Assessment
 
-## ACTION REQUIRED（读完后立刻执行）
+## ACTION REQUIRED (execute immediately after reading)
 
-1. `NOW`: 读取 precedent-pentest；**生产库禁止破坏性语句** unless 明确允许
-2. `NOW`: scope 写清实例、账号权限、是否允许写/删
-3. `NEXT`: 客户端工具路径
-4. `ACT`: 暴露面 → 认证 → 授权 → 配置 → 利用链验证（安全）
+1. `NOW`: read precedent-pentest; **MUST NOT run destructive statements on production DBs** unless explicitly allowed
+2. `NOW`: scope MUST name instance, account rights, and whether write/delete is allowed
+3. `NEXT`: client-tool paths
+4. `ACT`: exposure → authn → authz → config → exploit-chain validation (safe)
 
-## 适用场景
+## When to use
 
-- 数据库未授权/弱口令/错误绑定 0.0.0.0
-- 权限过大、危险功能（xp_cmdshell、COPY PROGRAM、UDF）
-- 横向：从应用账号到 DBA
-- NoSQL 注入与 Redis 写文件等（授权环境）
+- DB unauthorized/weak password/wrong bind 0.0.0.0
+- Over-privilege, dangerous features (xp_cmdshell, COPY PROGRAM, UDF)
+- Lateral: from app account to DBA
+- NoSQL injection and Redis write-file (authorized env)
 
-## 工作流
+## Workflow
 
 ```text
-□ 网络暴露与 TLS
-□ 账号角色与 grantee
-□ 敏感表访问控制
-□ 危险配置：file_priv、xp_cmdshell、load_file
-□ 审计日志是否开启
-□ 备份与快照权限
+□ Network exposure and TLS
+□ Account roles and grantee
+□ Sensitive-table access control
+□ Dangerous config: file_priv, xp_cmdshell, load_file
+□ Whether audit logs are on
+□ Backup and snapshot privileges
 ```
 
-## 工具链
+## Toolchain
 
-| 工具 | 用途 |
+| Tool | Purpose |
 |------|------|
-| 官方 CLI | 连接与枚举 |
-| sqlmap | 注入验证（授权） |
-| nuclei | 已知暴露模板 |
-| 云 RDS 控制台审计 | 配置 |
+| Official CLI | connect and enumerate |
+| sqlmap | injection validation (authorized) |
+| nuclei | known-exposure templates |
+| Cloud RDS console audit | config |
 
-## 参考
+## References
 
 - `references/db-misconfig-checklist.md`
 - `../pentest-tools/` `../cloud-k8s/`
 
-## 路由上下文
+## Routing context
 
-**上游**: MASTER R35  
-**下游**: 获 OS 命令 → attack-chain；云托管 → cloud-k8s
+**Upstream**: MASTER R35
+**Downstream**: got OS command → attack-chain; cloud-hosted → cloud-k8s
 
-## 任务完成自检
+## Task-complete self-check
 
-- [ ] 是否避免未授权写删？
-- [ ] 是否区分配置问题与可利用链？
-- [ ] Checklist？
+- [ ] Avoided unauthorized write/delete?
+- [ ] Distinguished config issues from exploitable chains?
+- [ ] Checklist?

@@ -1,192 +1,192 @@
 ---
 name: dotnet-reverse
-description: .NET / C# 二进制逆向。当目标是 .NET assembly（PE 头含 CLR、.exe/.dll 托管程序）、C# 编译产物（含 NativeAOT）、红队 Sharp* 工具（Rubeus / SharpHound / SharpHound 等）、.NET 混淆程序（ConfuserEx / SmartAssembly / Babel / Eazfuscator）、.NET loader / info-stealer / 套壳 malware 时使用。优先用 dnSpyEx + de4dot，需要 AI 直接操作时联动 dnSpy MCP。不用于纯 native 二进制（走 reverse-engineering / ida-reverse）。
+description: .NET / C# binary reverse. Use when the target is a .NET assembly (PE header has CLR, managed .exe/.dll), a C# compile product (including NativeAOT), red-team Sharp* tools (Rubeus / SharpHound / etc.), .NET obfuscators (ConfuserEx / SmartAssembly / Babel / Eazfuscator), or a .NET loader / info-stealer / packed malware. Prefer dnSpyEx + de4dot; when AI must drive the UI, pair with dnSpy MCP. Not for pure native binaries (use reverse-engineering / ida-reverse).
 license: MIT
-compatibility: Requires a filesystem-based code agent or CLI with shell access, Windows host preferred (dnSpyEx 是 Windows GUI)；Linux/macOS 可用 ILSpy/de4dot CLI + mono/dotnet runtime。
+compatibility: Requires a filesystem-based code agent or CLI with shell access, Windows host preferred (dnSpyEx is a Windows GUI); Linux/macOS can use ILSpy/de4dot CLI + mono/dotnet runtime.
 allowed-tools: Bash Read Write Edit Glob Grep Task WebFetch WebSearch
 metadata:
   user-invocable: "false"
 ---
 
-# .NET / C# 逆向作业规范
+# .NET / C# reverse work spec
 
-## ACTION REQUIRED（读完立刻执行）
+## ACTION REQUIRED (execute immediately after reading)
 
-1. `NOW`: 用 DIE/`file`/CLR 头确认目标是 .NET 托管（否则 SWITCH 到 `ida-reverse/` / `reverse-engineering/`）
-2. `NOW`: 若疑似混淆 → 先 `de4dot` 脱壳，产出 `*-clean.exe`，保留原始样本
-3. `NEXT`: dnSpyEx（或 dnSpy MCP / `ilspycmd`）静态：C# 浏览 + **IL 视图**看关键判断
-4. `ACT`: 需要明文/C2 时动态调试；需要改逻辑时 **IL patch** 优先于 C# 重编译
-5. 阶段结束给用户 3–6 项下一步菜单（含导出报告）
+1. `NOW`: use DIE/`file`/CLR header to confirm the target is managed .NET (else SWITCH to `ida-reverse/` / `reverse-engineering/`)
+2. `NOW`: if likely packed/obfuscated → `de4dot` first, emit `*-clean.exe`, keep the original sample
+3. `NEXT`: dnSpyEx (or dnSpy MCP / `ilspycmd`) static: browse C# + **IL view** for key predicates
+4. `ACT`: dynamic-debug when plaintext/C2 is needed; when logic must change, **IL patch** beats C# recompile
+5. at stage end, give the user a 3–6 item next-step menu (include export report)
 
-## 适用范围
+## Scope
 
-当任务属于以下场景时优先使用本 skill：
+Prefer this skill when the task is:
 
-- 识别并逆向 .NET / C# 编译产物（托管 PE / .exe / .dll）
-- 分析红队 Sharp* 工具链（Rubeus、SharpHound、SharpShell 等）
-- 脱混淆 ConfuserEx / SmartAssembly / Babel / Eazfuscator / .NET Reactor 等壳
-- 逆向 .NET loader / info-stealer / RAT 的解密与 C2 逻辑
-- 对 C# 程序做 patch（改判断、改常量、keygen）
-- 分析 IL2CPP 之前的 Mono/Unity 托管层（注意：IL2CPP 编译后是 native，走 `reverse-engineering/` + seed-014）
+- Identify and reverse .NET / C# compile products (managed PE / .exe / .dll)
+- Analyze red-team Sharp* toolchains (Rubeus, SharpHound, SharpShell, etc.)
+- Deobfuscate ConfuserEx / SmartAssembly / Babel / Eazfuscator / .NET Reactor and similar packers
+- Reverse .NET loader / info-stealer / RAT decrypt and C2 logic
+- Patch a C# program (change predicates, constants, keygen)
+- Analyze the Mono/Unity managed layer before IL2CPP (note: after IL2CPP the result is native; use `reverse-engineering/` + seed-014)
 
-如果目标是纯 native 二进制（C/C++/Go/Rust 编译、无 CLR），请改用 `reverse-engineering/`、`ida-reverse/` 或 `radare2/`。
+If the target is a pure native binary (C/C++/Go/Rust, no CLR), use `reverse-engineering/`, `ida-reverse/`, or `radare2/` instead.
 
-## 核心原则
+## Core principles
 
-- **先识别再下手**：先确认是 .NET 托管程序（PE 头 CLR + `#~` / `#Strings` 流 + mscoree `_CorExeMain`），再决定走 dnSpy 而非 IDA
-- **IL 优先于 C#**：dnSpyEx 的 C# 反编译器会丢失/扭曲信息（编译器生成的状态机、async/await、yield），关键判断与 patch 必须切到 **IL 编辑器**，C# 视图只用于快速浏览
-- **de4dot 先行**：遇到混淆器先 `de4dot` 脱一轮再做静态分析，否则字符串/控制流全是乱的
-- **MCP 联动**：环境里若注册了 dnSpy MCP（`dnspy_*` 工具），优先走 MCP 面做 decompile / IL inspection，避免来回切 GUI
-- **证据化输出**：脱混淆产物、提取的配置/C2/key、patch diff 都要落盘
+- **Identify before acting**: confirm it is managed .NET (PE header CLR + `#~` / `#Strings` streams + mscoree `_CorExeMain`) before choosing dnSpy over IDA
+- **IL over C#**: dnSpyEx's C# decompiler loses/distorts information (compiler-generated state machines, async/await, yield). Key predicates and patches MUST switch to the **IL editor**; C# view is for fast browsing only
+- **de4dot first**: on obfuscators run `de4dot` once before static analysis, or strings/control flow stay garbled
+- **MCP pairing**: if dnSpy MCP (`dnspy_*` tools) is registered, prefer the MCP surface for decompile / IL inspection instead of flipping the GUI
+- **Evidence output**: deobfuscated artifacts, extracted config/C2/key, and patch diffs MUST land on disk
 
-## 工具链映射
+## Toolchain mapping
 
-| 能力 | 首选 | 备注 |
+| Capability | Preferred | Notes |
 |------|------|------|
-| 反编译 + 调试 + patch | **dnSpyEx** | 王牌，唯一带 IL 编辑器的 GUI；老 dnSpy 已停更，用 Ex 分支 |
-| 轻量 CLI / headless 反编译 | **ILSpy** (`ilspycmd`) | 适合批量、脚本化、Linux/macOS |
-| 脱混淆 | **de4dot** | ConfuserEx 全家桶、SmartAssembly 等主流壳的默认解 |
-| 混淆器识别 | **Detect It Easy (DIE)** / **file** | 先判断壳类型再决定 de4dot 参数 |
-| 编程化操作 IL | **dnlib** | 写 C# 脚本批量改 metadata / 字符串解密器 |
-| AI 直接操作 | **dnSpy MCP** | `dnspy_decompile` / `dnspy_inspect_il` 等工具面 |
+| Decompile + debug + patch | **dnSpyEx** | Primary; the only GUI with an IL editor; old dnSpy is unmaintained, use the Ex fork |
+| Light CLI / headless decompile | **ILSpy** (`ilspycmd`) | Batch, scripted, Linux/macOS |
+| Deobfuscate | **de4dot** | Default unpack for ConfuserEx family, SmartAssembly, and other mainstream packers |
+| Obfuscator ID | **Detect It Easy (DIE)** / **file** | Identify packer type before choosing de4dot args |
+| Programmatic IL | **dnlib** | C# scripts for batch metadata edits / string decryptors |
+| AI-driven ops | **dnSpy MCP** | `dnspy_decompile` / `dnspy_inspect_il` and similar |
 
-> 前置：Windows 主机装 dnSpyEx + de4dot（choco 或 release）；Linux/macOS 用 `ilspycmd` + `dotnet runtime`。详见 `references/sharp-tools.md` 的安装矩阵。
+> Prerequisite: on Windows install dnSpyEx + de4dot (choco or release); on Linux/macOS use `ilspycmd` + `dotnet runtime`. See the install matrix in `references/sharp-tools.md`.
 
-## 六阶段工作流
+## Six-phase workflow
 
-### 1. Identify（识别 .NET）
+### 1. Identify (.NET)
 
-确认目标是托管程序，别把 native PE 当 .NET 分析：
+Confirm the target is managed. Do not analyze a native PE as .NET:
 
 ```powershell
 # Windows
-file target.exe                       # "PE32 executable ... for MS Windows" 不够
-# 关键：看有没有 CLR
+file target.exe                       # "PE32 executable ... for MS Windows" is not enough
+# Key: is there a CLR
 powershell -c "[System.Reflection.AssemblyName]::GetAssemblyName('target.exe')"
-# 或
-dnSpyEx 直接拖进去 —— 能打开就是托管
+# or
+dnSpyEx drag-and-drop — if it opens, it is managed
 
-# 通用
+# Generic
 strings target.exe | grep -iE "mscoree|_CorExeMain|mscorlib|System\\."
 ```
 
-**.NET 识别标志：**
-- PE 头 `Data Directory[14]` (CLR Runtime Header) 非零
-- `mscoree.dll` 导入 / `_CorExeMain` 入口
-- `#~`、`#Strings`、`#US`、`#GUID`、`#Blob` metadata 流
-- `mscorlib` / `System.Private.CoreLib` 字符串
+**.NET identification marks:**
+- PE header `Data Directory[14]` (CLR Runtime Header) nonzero
+- `mscoree.dll` import / `_CorExeMain` entry
+- `#~`, `#Strings`, `#US`, `#GUID`, `#Blob` metadata streams
+- `mscorlib` / `System.Private.CoreLib` strings
 
-**NativeAOT 例外：** 编译成 native，没有 CLR 头，但有 `System.Private.CoreLib` 字符串和重构过的类型元数据 —— 这类走 `reverse-engineering/`（IDA/r2），本 skill 仅做识别提示。
+**NativeAOT exception:** compiled to native, no CLR header, but has `System.Private.CoreLib` strings and reconstructed type metadata — use `reverse-engineering/` (IDA/r2). This skill only flags identification.
 
-### 2. Detect（检测混淆器）
+### 2. Detect (obfuscator)
 
 ```powershell
-# DIE 快速识别
+# DIE fast ID
 diec target.exe                        # Detect It Easy CLI
-# 或拖进 dnSpyEx，看是否大量乱码类名 / 控制流变形
+# or drag into dnSpyEx and look for mass garbled class names / control-flow morph
 ```
 
-常见混淆器 → 脱壳策略（详见 `references/obfuscators.md`）：
+Common obfuscators → unpack strategy (see `references/obfuscators.md`):
 
-| 混淆器 | 特征 | de4dot 处理 |
+| Obfuscator | Traits | de4dot handling |
 |--------|------|------------|
-| ConfuserEx (1.0.0 / 2.x) | `<module>` anti-tamper、控制流变形、字符串加密 | `de4dot target.exe` 通常自动识别 |
-| SmartAssembly | `circular`/`string encoding`、资源压缩 | `de4dot target.exe` |
-| Babel.NET | 方法体加密、控制流 | `de4dot target.exe` |
-| Eazfuscator.NET | 字符串/资源加密 | `de4dot`，部分版本需手动 |
-| .NET Reactor | anti-tamper + necrobit | `de4dot`，新版可能失败需手动 |
+| ConfuserEx (1.0.0 / 2.x) | `<module>` anti-tamper, control-flow morph, string encrypt | `de4dot target.exe` usually auto-detects |
+| SmartAssembly | `circular`/`string encoding`, resource compress | `de4dot target.exe` |
+| Babel.NET | method-body encrypt, control flow | `de4dot target.exe` |
+| Eazfuscator.NET | string/resource encrypt | `de4dot`; some versions need manual work |
+| .NET Reactor | anti-tamper + necrobit | `de4dot`; new versions MAY fail and need manual work |
 
-### 3. Deobfuscate（脱混淆）
+### 3. Deobfuscate
 
 ```powershell
-# de4dot 默认自动识别大多数壳
+# de4dot default auto-detects most packers
 de4dot target.exe -o target-clean.exe
 
-# 指定类型（自动识别失败时）
+# Specify type (when auto-detect fails)
 de4dot --type cfze target.exe          # ConfuserEx
 de4dot --type sa target.exe            # SmartAssembly
 
-# 多层混淆 / de4dot 报 unknown
-de4dot --detect target.exe             # 看它识别成什么
-# 可能要先 patch anti-tamper 再 de4dot（见 references/obfuscators.md）
+# Multi-layer obfuscation / de4dot reports unknown
+de4dot --detect target.exe             # see what it identified
+# MAY need to patch anti-tamper first, then de4dot (see references/obfuscators.md)
 ```
 
-产出：`target-clean.exe`，后续分析用它。**保留原始样本**做对照。
+Output: `target-clean.exe` for later analysis. **Keep the original sample** for comparison.
 
-### 4. Static Analyze（静态分析）
+### 4. Static Analyze
 
-dnSpyEx 加载脱壳后样本：
+Load the unpacked sample in dnSpyEx:
 
-- **C# 视图**：快速浏览类结构、方法签名、字符串（用于定位）
-- **IL 视图**：关键判断、加密逻辑、状态机必须看 IL（右键 → Edit IL 或 IL 视图）
-- 找入口：`Main` / `Startup` / 模块初始化器 (`Module .cctor`)
-- 找关键逻辑：搜 `flag`、`password`、`verify`、`check`、`encrypt`、`http`、`Config`
+- **C# view**: fast browse of class structure, method signatures, strings (for location)
+- **IL view**: key predicates, crypto logic, state machines MUST be read in IL (right-click → Edit IL or IL view)
+- Find entry: `Main` / `Startup` / module initializer (`Module .cctor`)
+- Find key logic: search `flag`, `password`, `verify`, `check`, `encrypt`, `http`, `Config`
 
 ```text
-定位字符串 → 反向引用 → 找到使用它的方法 → IL 视图看判断逻辑
+Locate string → reverse xref → find the method that uses it → IL view for predicate logic
 ```
 
-### 5. Dynamic（动态调试）
+### 5. Dynamic (debug)
 
-dnSpyEx 调试器：附加进程 / 启动调试，在关键方法下断点，观察运行时：
-- 解密后的明文字符串（很多混淆器的字符串在运行时才解密）
-- C2 地址、配置解密结果
-- 异常驱动的控制流（anti-debug 常用 `try/catch` 隐藏真实路径）
+dnSpyEx debugger: attach / start debug, breakpoint key methods, observe at runtime:
+- Plaintext strings after decrypt (many obfuscators decrypt strings only at runtime)
+- C2 addresses, config decrypt results
+- Exception-driven control flow (anti-debug often hides the real path in `try/catch`)
 
-> .NET 动态调试比 native 友好得多 —— 能直接看到对象值、字符串内容。优先动态而非死磕静态。
+> .NET dynamic debug is much friendlier than native — object values and string contents are visible. Prefer dynamic over grinding static.
 
-### 6. Patch（按需修改）
+### 6. Patch (as needed)
 
 ```text
-dnSpyEx → 右键方法 → Edit Method (C#) 或 Edit IL
-  - 改判断：ldc.i4.0 → ldc.i4.1（false→true）
-  - 改常量：直接编辑字符串/数字
-  - 删除校验：nop 掉整段
-File → Save Module → 替换原文件
+dnSpyEx → right-click method → Edit Method (C#) or Edit IL
+  - Change predicate: ldc.i4.0 → ldc.i4.1 (false→true)
+  - Change constant: edit string/number directly
+  - Drop check: nop the whole block
+File → Save Module → replace the original file
 ```
 
-**IL patch 可靠性 > C# patch**：C# 重编译可能失败（缺引用、语法不对），IL 编辑几乎不会失真。详见 `references/common-workflow.md`。
+**IL patch reliability > C# patch**: C# recompile MAY fail (missing refs, bad syntax); IL edits almost never distort. See `references/common-workflow.md`.
 
-## 触发场景路由
+## Trigger-scene routing
 
-用户说这些时进入本 skill：
-- ".NET / C# 二进制逆向" / "C# 程序反编译"
-- "dnSpy 分析" / "dnSpyEx patch"
-- "ConfuserEx / SmartAssembly / Babel 脱混淆 / 脱壳"
-- "Sharp* 工具分析"（Rubeus / SharpHound / SharpShell）
-- ".NET malware / loader / info-stealer 逆向"
-- "C# 程序 patch / keygen / 修改判断"
+Enter this skill when the user says:
+- ".NET / C# binary reverse" / "decompile a C# program"
+- "dnSpy analysis" / "dnSpyEx patch"
+- "ConfuserEx / SmartAssembly / Babel deobfuscate / unpack"
+- "Sharp* tool analysis" (Rubeus / SharpHound / SharpShell)
+- ".NET malware / loader / info-stealer reverse"
+- "C# program patch / keygen / change a predicate"
 
-## 何时切出
+## When to switch out
 
-- IL2CPP 编译的 Unity 游戏 → `reverse-engineering/` + `seed-014_unity-il2cpp-reverse.md`（IL2CPP 是 native，不走 dnSpy）
-- NativeAOT 产物 → `reverse-engineering/`（同上，native）
-- 纯 native PE（无 CLR）→ `reverse-engineering/` / `ida-reverse/`
-- 需要符号/函数批量迁移到别的版本 → `binary-diff/`
-- 需要画攻击路径 / 调用链图 → `diagram-generator/`
+- IL2CPP-compiled Unity game → `reverse-engineering/` + `seed-014_unity-il2cpp-reverse.md` (IL2CPP is native; not dnSpy)
+- NativeAOT product → `reverse-engineering/` (same, native)
+- Pure native PE (no CLR) → `reverse-engineering/` / `ida-reverse/`
+- Need symbol/function bulk migrate to another version → `binary-diff/`
+- Need attack-path / call-chain diagrams → `diagram-generator/`
 
-## 路由上下文
+## Routing context
 
-**上游入口**: `skills/SKILL.md`（总控）、`routing.md`
-**下游出口**:
-- IL2CPP / NativeAOT（native）→ `reverse-engineering/`
-- 深度 native .so/.dll 段分析 → `ida-reverse/` / `radare2/`
-- 需要 AI 直接操作 dnSpy → 注册并联动 dnSpy MCP（见 `references/sharp-tools.md`）
+**Upstream entry**: `skills/SKILL.md` (master), `routing.md`
+**Downstream exits**:
+- IL2CPP / NativeAOT (native) → `reverse-engineering/`
+- Deep native .so/.dll segment analysis → `ida-reverse/` / `radare2/`
+- Need AI to drive dnSpy directly → register and pair dnSpy MCP (see `references/sharp-tools.md`)
 
-**同级关联模块**:
-- `reverse-engineering/languages-compiled.md`（.NET 简介指向本模块）
-- `apk-reverse/`（Xamarin/MAUI Android 逆向可切回本模块看 C# 层）
+**Peer modules**:
+- `reverse-engineering/languages-compiled.md` (.NET intro points here)
+- `apk-reverse/` (Xamarin/MAUI Android reverse MAY switch back here for the C# layer)
 
-## 参考文档
+## References
 
-- [references/obfuscators.md](references/obfuscators.md) — ConfuserEx / SmartAssembly / Babel / Eazfuscator / .NET Reactor 脱混淆详解 + anti-tamper 绕过
-- [references/common-workflow.md](references/common-workflow.md) — 完整工作流、IL patch 可靠性、字符串解密器提取、状态机识别
-- [references/sharp-tools.md](references/sharp-tools.md) — 红队 Sharp* 工具分析、工具安装矩阵、dnSpy MCP 集成、社区资源索引
+- [references/obfuscators.md](references/obfuscators.md) — ConfuserEx / SmartAssembly / Babel / Eazfuscator / .NET Reactor deobfuscation detail + anti-tamper bypass
+- [references/common-workflow.md](references/common-workflow.md) — full workflow, IL patch reliability, string-decryptor extract, state-machine ID
+- [references/sharp-tools.md](references/sharp-tools.md) — red-team Sharp* tool analysis, install matrix, dnSpy MCP integration, community index
 
-## 任务完成自检
+## Task-complete self-check
 
-- [ ] 是否确认过 CLR / 托管身份（或已 SWITCH 出本 skill）？
-- [ ] 混淆样本是否先 de4dot / 等价脱壳再深分析？
-- [ ] 关键逻辑是否用 IL 视图验证（而非只看 C# 伪代码）？
-- [ ] 产物（clean 样本 / 配置 / patch diff）是否落盘且可复现？
-- [ ] 是否提供了下一步菜单或报告出口？
+- [ ] Was CLR / managed identity confirmed (or SWITCH out of this skill)?
+- [ ] Was an obfuscated sample de4dot / equivalent unpacked before deep analysis?
+- [ ] Was key logic verified in IL view (not C# pseudocode only)?
+- [ ] Did artifacts (clean sample / config / patch diff) land on disk and reproduce?
+- [ ] Was a next-step menu or report exit provided?

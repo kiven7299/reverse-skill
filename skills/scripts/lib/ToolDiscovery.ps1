@@ -34,6 +34,108 @@ function Join-ReverseOptionalPath {
     return Join-Path $Path $ChildPath
 }
 
+function Get-ReverseLocalToolsMarkdownPath {
+    [CmdletBinding()]
+    param()
+
+    return [System.IO.Path]::GetFullPath((Join-Path $PSScriptRoot '..\..\..\TOOLS.md'))
+}
+
+function Get-ReverseLocalToolOverlay {
+    [CmdletBinding()]
+    param()
+
+    if ((Get-Variable -Name 'ReverseLocalToolOverlay' -Scope Script -ErrorAction SilentlyContinue) -and $null -ne $script:ReverseLocalToolOverlay) {
+        return $script:ReverseLocalToolOverlay
+    }
+
+    $path = Get-ReverseLocalToolsMarkdownPath
+    if (-not (Test-Path -LiteralPath $path)) {
+        $script:ReverseLocalToolOverlay = [pscustomobject]@{ tools = @() }
+        return $script:ReverseLocalToolOverlay
+    }
+
+    $raw = Get-Content -LiteralPath $path -Raw -Encoding UTF8
+    $match = [regex]::Match($raw, '(?s)```json\s*(\{.*?\})\s*```')
+    if (-not $match.Success) {
+        $script:ReverseLocalToolOverlay = [pscustomobject]@{ tools = @() }
+        return $script:ReverseLocalToolOverlay
+    }
+
+    try {
+        $script:ReverseLocalToolOverlay = $match.Groups[1].Value | ConvertFrom-Json
+    }
+    catch {
+        $script:ReverseLocalToolOverlay = [pscustomobject]@{ tools = @() }
+    }
+    return $script:ReverseLocalToolOverlay
+}
+
+function Merge-ReverseToolCatalogWithOverlay {
+    [CmdletBinding()]
+    param(
+        [Parameter(Mandatory = $true)]
+        [object[]]$Catalog
+    )
+
+    $overlay = Get-ReverseLocalToolOverlay
+    $overlayTools = @($overlay.tools)
+    if ($overlayTools.Count -eq 0) {
+        return $Catalog
+    }
+
+    $byName = @{}
+    foreach ($item in $Catalog) {
+        $byName[$item.Name] = $item
+    }
+
+    foreach ($extra in $overlayTools) {
+        $name = [string]$extra.name
+        if ([string]::IsNullOrWhiteSpace($name)) {
+            continue
+        }
+
+        $overlayFallbacks = @()
+        foreach ($fb in @($extra.fallbacks)) {
+            if ($null -eq $fb -or [string]::IsNullOrWhiteSpace([string]$fb.value)) {
+                continue
+            }
+            $overlayFallbacks += [pscustomobject]@{
+                Type = [string]$fb.type
+                Value = [string]$fb.value
+            }
+        }
+
+        if ($byName.ContainsKey($name)) {
+            $existing = $byName[$name]
+            $merged = @($overlayFallbacks) + @($existing.Fallbacks)
+            $existing.Fallbacks = $merged
+            if ($extra.PSObject.Properties['purpose'] -and -not [string]::IsNullOrWhiteSpace([string]$extra.purpose)) {
+                $existing.Purpose = [string]$extra.purpose
+            }
+        }
+        else {
+            $byName[$name] = [pscustomobject]@{
+                Name = $name
+                Skill = if ($extra.PSObject.Properties['skill']) { [string]$extra.skill } else { '' }
+                Purpose = if ($extra.PSObject.Properties['purpose']) { [string]$extra.purpose } else { '' }
+                VersionArgs = @()
+                Fallbacks = $overlayFallbacks
+            }
+        }
+    }
+
+    $ordered = @()
+    foreach ($item in $Catalog) {
+        $ordered += $byName[$item.Name]
+        $byName.Remove($item.Name)
+    }
+    foreach ($name in $byName.Keys) {
+        $ordered += $byName[$name]
+    }
+    return $ordered
+}
+
 function Get-ReverseToolCatalog {
     [CmdletBinding()]
     param()
@@ -42,7 +144,7 @@ function Get-ReverseToolCatalog {
     $localAppData = [Environment]::GetEnvironmentVariable('LOCALAPPDATA')
     $appData = [Environment]::GetEnvironmentVariable('APPDATA')
 
-    return @(
+    $catalog = @(
         [pscustomobject]@{
             Name = 'jadx'
             Skill = 'apk-reverse'
@@ -523,6 +625,8 @@ function Get-ReverseToolCatalog {
             )
         }
     )
+
+    return @(Merge-ReverseToolCatalogWithOverlay -Catalog $catalog)
 }
 
 function Get-ReverseSkillRoot {

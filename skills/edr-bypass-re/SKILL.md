@@ -1,234 +1,234 @@
 ---
 name: edr-bypass-re
 description: |
-  逆向防御方实现 → 红队针对性绕过。把 EDR / Defender / AV 的 hook 表、ETW provider、AMSI 实现先逆向出来，
-  再写针对性的 unhook / 间接 syscall / ETW patch / call stack spoof。对照 MITRE ATT&CK T1562 防御规避。
-  触发关键词：EDR 绕过、AV bypass、免杀、unhook、direct syscall、indirect syscall、Hell's Gate、Halo's Gate、
-  Tartarus Gate、ETW patch、AMSI patch、call stack spoofing、hardware breakpoint Blindside、MITRE T1562、
-  ntdll unhook、kernel callback、CrowdStrike 绕过、Defender 绕过、Sentinel One 绕过、Elastic Defend、
-  Sysmon 规避、PPID spoof、Sleep mask、Process Hollowing、Reflective DLL。
+  Reverse the defender implementation → targeted red-team bypass. Reverse EDR / Defender / AV hook tables, ETW providers, AMSI first,
+  then write targeted unhook / indirect syscall / ETW patch / call stack spoof. Mapped to MITRE ATT&CK T1562 Defense Evasion.
+  Trigger keywords: EDR bypass, AV bypass, unhook, direct syscall, indirect syscall, Hell's Gate, Halo's Gate,
+  Tartarus Gate, ETW patch, AMSI patch, call stack spoofing, hardware breakpoint Blindside, MITRE T1562,
+  ntdll unhook, kernel callback, CrowdStrike bypass, Defender bypass, Sentinel One bypass, Elastic Defend,
+  Sysmon evasion, PPID spoof, Sleep mask, Process Hollowing, Reflective DLL.
 ---
 
-## ACTION REQUIRED（读完后立刻执行）
+## ACTION REQUIRED (execute immediately after reading)
 
-1. `NOW`: 读取 `../field-journal/precedent-reverse.md` — 确认本 skill 的操作是已授权的常规操作
-2. `NOW`: 确认当前任务是否命中本 skill 的适用范围
-3. `NEXT`: 读取 `../tool-index.md`，校验工具可用性和实际路径
-4. `NEXT`: 缺工具时调用 bootstrap，不要猜路径
-5. `ACT`: 进入"工作流"第一步并执行，不要停在确认状态
+1. `NOW`: read `../field-journal/precedent-reverse.md` — confirm this skill's operations are authorized routine work
+2. `NOW`: confirm the current task matches this skill's scope
+3. `NEXT`: read `../tool-index.md` and `../../TOOLS.md`; verify tool availability and real paths
+4. `NEXT`: if a tool is missing, call bootstrap; do not guess paths
+5. `ACT`: enter step 1 of the workflow and execute; do not stop at confirmation
 
-# EDR 绕过：从防御方实现逆向到红队绕过
+# EDR bypass: from defender reverse to red-team bypass
 
-> 仅限授权红队 / 对抗演练 / 自有产品测试，禁止用于未授权目标。
+> Authorized red-team / adversary emulation / own-product testing only. MUST NOT use on unauthorized targets.
 
-## 适用范围
+## Scope
 
-红队 / 对抗模拟在已获授权的目标主机投递 implant 并躲避现代 EDR 时使用本 skill。
+Use this skill when red-team / adversary simulation delivers an implant on an authorized host and must evade modern EDR.
 
-1. **红队 / Purple team / 对抗演练** — 客户希望评估 SOC 与 EDR 的真实检测能力
-2. **自研 implant / C2 框架研发** — 开发针对自家产品测试的载荷，需要绕过自家或目标 EDR
-3. **EDR 产品评估** — 在合规边界已确认的前提下，客观评测某款 EDR 的检测覆盖
-4. **CTF / 攻防演练的 Windows 端突破** — 比赛中需要在加固主机上稳定执行
+1. **Red-team / Purple team / adversary emulation** — customer wants real SOC and EDR detection capability assessed
+2. **In-house implant / C2 framework R&D** — develop payloads tested against own product; need to bypass own or target EDR
+3. **EDR product evaluation** — objectively measure an EDR's detection coverage after compliance boundary is confirmed
+4. **CTF / red-blue drill Windows-side breach** — contest needs stable exec on a hardened host
 
-**不适用场景**：
+**Out of scope**:
 
-- 杀毒厂商对自家产品做完整 RE 给客户出商业评估报告（找厂商正式合作）
-- 未授权目标的免杀对抗（违法）
-- 普通病毒木马的免杀（本 skill 关注红队 OPSEC，不教恶意代码写法）
+- AV vendor full RE of their own product for a commercial customer report (formal vendor partnership)
+- Unauthorized-target AV evasion (illegal)
+- Generic malware AV evasion (this skill is red-team OPSEC, not malware writing)
 
-### 与其他 skill 的分工
+### Split vs other skills
 
-| 场景 | 用什么 |
+| Scenario | Use |
 |------|--------|
-| 全链路攻防（从外网打到域控） | `attack-chain/` |
-| 内网横向 / AD 攻击 | `pentest-tools/network-attack-defense.md` |
-| 在某个特定主机上要过 EDR 投递 implant | **本 skill** |
-| 单纯静态免杀（混淆 / 加壳） | `malware-analysis/`（反向视角） |
+| Full-chain attack (internet to DC) | `attack-chain/` |
+| Intranet lateral / AD attack | `pentest-tools/network-attack-defense.md` |
+| Need to pass EDR to deliver implant on a specific host | **this skill** |
+| Pure static evasion (obfuscate / pack) | `malware-analysis/` (reverse view) |
 
-`attack-chain` 关注完整 kill chain，本 skill 只聚焦 **EDR 这一个对手** 的内部机制和针对性绕法。
+`attack-chain` covers the full kill chain; this skill focuses only on **EDR as the opponent**: internals and targeted bypass.
 
-## 核心原理
+## Core principle
 
 ```text
-EDR 的四个主要监控面               红队的对策
+EDR four main monitor surfaces               Red-team counters
 ─────────────────────              ─────────────────────
-用户态 ntdll hook       ◄──►   unhook (Peruns Fart / fresh ntdll)
-                                  间接 syscall / Hell's Gate
-                                  hardware breakpoint Blindside
+Userland ntdll hook       ◄──►   unhook (Peruns Fart / fresh ntdll)
+                                   indirect syscall / Hell's Gate
+                                   hardware breakpoint Blindside
 
 kernel callback         ◄──►   call stack spoof
-(Ps/Cm/Ob 系列)                   走合法触发链（不直接绕，配合上游隐身）
+(Ps/Cm/Ob family)                   walk legit trigger chain (do not bypass directly; pair with upstream stealth)
 
 ETW telemetry           ◄──►   EtwEventWrite patch
-(Microsoft-Windows-Threat-          NtTraceControl 关 provider
- Intelligence 等)                  AmsiContext 同步处理
+(Microsoft-Windows-Threat-          NtTraceControl disable provider
+ Intelligence etc.)                  AmsiContext handled in sync
 
-AMSI 扫描               ◄──►   AmsiScanBuffer patch (mov eax,0x80070057; ret)
-(amsi.dll)                       hardware breakpoint 旁路
-                                  reflective 加载副本 amsi.dll
+AMSI scan               ◄──►   AmsiScanBuffer patch (mov eax,0x80070057; ret)
+(amsi.dll)                       hardware breakpoint bypass
+                                   reflective load a copy of amsi.dll
 ```
 
-关键认知：
+Key facts:
 
-- **EDR 不是黑盒** — 关键 hook / callback / provider 都能用 IDA + windbg 逆出来
-- **绕过技术要组合使用** — 单独一个 unhook 解决不了 ETW 告警，单独 AMSI patch 解决不了 syscall hook
-- **顺序很重要** — 先 ETW patch → 再 AMSI patch → 再 unhook；顺序错了 EDR 先收到 unhook 告警
-- **现代 EDR 已经把 ETW + kernel callback 当主战场**，单纯用户态 unhook 早已不够
+- **EDR is not a black box** — key hooks / callbacks / providers can be reversed with IDA + windbg
+- **Bypass techniques MUST be combined** — unhook alone does not kill ETW alerts; AMSI patch alone does not kill syscall hooks
+- **Order matters** — ETW patch first → then AMSI patch → then unhook; wrong order lets EDR see the unhook alert first
+- **Modern EDR treats ETW + kernel callback as the main battlefield**; userland unhook alone is long insufficient
 
-## 工作流
+## Workflow
 
-### Step 1：识别目标主机的 EDR
+### Step 1: identify the host EDR
 
 ```powershell
-# 列出常见 EDR / AV 驱动
+# list common EDR / AV drivers
 Get-Service | Where-Object {$_.Name -match 'CSAgent|SentinelAgent|elasticendpoint|esets|ekrn|MsMpEng|wdsvc|cyserver|sysmon|aswbidsagent'}
 
-# 列出加载的 minifilter
+# list loaded minifilters
 fltmc filters
 
-# 列出已注册的内核 callback（需 windbg + 内核调试 / 或用 PChunter / DRVHV）
+# list registered kernel callbacks (needs windbg + kernel debug / or PChunter / DRVHV)
 # !object \Callback
 # !pnpcallback / Process / Thread / Image
 ```
 
-EDR 指纹表见 `references/hook-survey.md` 顶部。
+EDR fingerprint table: top of `references/hook-survey.md`.
 
-### Step 2：从 EDR DLL 提 hook 表
+### Step 2: extract hook table from EDR DLL
 
-1. attach 到一个被注入 EDR 用户态组件的进程（任何已落地进程）
-2. 在 windbg 中 dump 当前 `ntdll.dll` 的 `.text` 段
-3. 与磁盘上干净的 `C:\Windows\System32\ntdll.dll` 做 diff
-4. 不一致的地方就是 hook 点
+1. attach to a process injected with the EDR userland component (any landed process)
+2. in windbg dump current `ntdll.dll` `.text`
+3. diff against clean on-disk `C:\Windows\System32\ntdll.dll`
+4. mismatches are hook sites
 
-或者直接用 `pe-sieve`：
+Or use `pe-sieve` directly:
 
 ```powershell
 pe-sieve64.exe /pid 1234 /shellc 3 /modules 3 /dir hooks_dump
 ```
 
-详细方法见 `references/hook-survey.md`。
+Detail: `references/hook-survey.md`.
 
-### Step 3：选绕过技术组合
+### Step 3: pick a bypass combo
 
-| 防御点 | 推荐绕法 |
+| Defense point | Recommended bypass |
 |--------|---------|
-| ntdll inline hook | indirect syscall + 动态 SSN (Halo's Gate) |
+| ntdll inline hook | indirect syscall + dynamic SSN (Halo's Gate) |
 | ETW-TI provider | EtwEventWrite head patch |
-| AMSI（PowerShell / .NET） | AmsiScanBuffer patch 或 HWBP |
-| kernel callback | call stack spoof + 走 legit gadget |
+| AMSI (PowerShell / .NET) | AmsiScanBuffer patch or HWBP |
+| kernel callback | call stack spoof + walk legit gadget |
 | Sysmon ProcessCreate | PPID spoof + unbacked memory |
 
-### Step 4：在 implant 中实现
+### Step 4: implement in the implant
 
-代码骨架见 `references/unhook-techniques.md` 与 `references/telemetry-blinding.md`。
+Code skeletons: `references/unhook-techniques.md` and `references/telemetry-blinding.md`.
 
-### Step 5：本地 sandbox 验证
+### Step 5: local sandbox verify
 
 ```powershell
-# 在隔离环境部署目标 EDR 试用版（Defender 默认即可起步）
-# 启用 Sysmon + olaf-config
+# deploy target EDR trial in an isolated env (Defender default is enough to start)
+# enable Sysmon + olaf-config
 sysmon64.exe -i sysmonconfig.xml
 
-# 跑 implant，看是否触发以下告警源：
+# run implant; watch these alert sources:
 #   - Defender AMSI
 #   - ETW-TI
 #   - Sysmon Event ID 1/7/8/10
-#   - EDR 控制台
+#   - EDR console
 ```
 
-### Step 6：投递
+### Step 6: deliver
 
-- 文件落地路径用合法软件目录
-- PPID spoof 到 explorer.exe
-- 配合 `attack-chain` 中的 initial access 节
+- Land files under legitimate software directories
+- PPID spoof to explorer.exe
+- Pair with `attack-chain` initial-access section
 
-## 典型场景
+## Typical scenarios
 
-### 场景 1：投递 cobalt-strike-alike beacon 过 Defender + Sysmon
+### Scenario 1: deliver cobalt-strike-alike beacon past Defender + Sysmon
 
 ```text
-目标：Windows 11 Enterprise + Defender (云查杀开) + Sysmon (olaf 配置)
-要求：beacon 落地后能 callback 且不触发任何告警
+Target: Windows 11 Enterprise + Defender (cloud protect on) + Sysmon (olaf config)
+Require: beacon callbacks after land with no alerts
 
-组合拳：
-  1. shellcode 加密存储，运行时解密
-  2. AMSI patch（如果走 PowerShell 投递）
-  3. EtwEventWrite patch（消 ETW-TI）
-  4. 间接 syscall + Halo's Gate（消 ntdll hook 告警）
-  5. PPID spoof 到 explorer.exe
-  6. sleep 阶段用 Ekko / Foliage 加密自身内存
+Combo:
+  1. shellcode stored encrypted, decrypt at runtime
+  2. AMSI patch (if delivering via PowerShell)
+  3. EtwEventWrite patch (kill ETW-TI)
+  4. indirect syscall + Halo's Gate (kill ntdll hook alerts)
+  5. PPID spoof to explorer.exe
+  6. sleep phase: Ekko / Foliage encrypt own memory
 ```
 
-### 场景 2：在已落地的低权限 shell 上做 EDR sleep mask
+### Scenario 2: EDR sleep mask on an already-landed low-priv shell
 
 ```text
-前置：已经通过 phishing 拿到 medium IL shell，EDR 正在监控
-风险：长时间驻留容易被内存扫描发现 beacon 特征
+Pre: phishing already yielded medium IL shell; EDR is monitoring
+Risk: long dwell lets memory scan find beacon signatures
 
-解法：
-  1. 不再申请新 RWX 内存
-  2. sleep 期间用 Ekko：
+Fix:
+  1. do not allocate new RWX memory
+  2. sleep with Ekko:
        - WaitForSingleObjectEx + CreateTimerQueueTimer
-       - 在定时器里加密自身 .text + 把堆栈刷成全 0
-  3. wake 时用 ROP 还原
-  4. 配合 call stack spoof 让 RtlCaptureStackBackTrace 看不到信标地址
+       - in the timer, encrypt own .text + zero the stack
+  3. wake via ROP restore
+  4. pair call stack spoof so RtlCaptureStackBackTrace cannot see beacon addrs
 ```
 
-## 按需自举（On-Demand Bootstrap）
+## On-Demand Bootstrap
 
-### 工具依赖
+### Tool dependencies
 
-| 工具 | 用途 | 可自动安装 |
+| Tool | Use | Auto-install |
 |------|------|-----------|
-| pe-sieve | 检测进程中的 hook / 注入 | ✓ |
-| API Monitor v2 | 动态观察 API 调用与 hook | 半自动（手动下载） |
-| SysWhispers3 | 生成直接 / 间接 syscall stub | ✓（git clone + python） |
-| Hell's Gate POC | 动态 SSN 解析参考实现 | ✓（git clone） |
-| windbg + IDA | 静态逆 EDR DLL / 内核 callback | ✗（自己装） |
-| Sysmon + olaf config | 本地验证环境 | ✓ |
+| pe-sieve | Detect in-process hooks / inject | ✓ |
+| API Monitor v2 | Dynamically observe API calls and hooks | Semi (manual download) |
+| SysWhispers3 | Generate direct / indirect syscall stubs | ✓ (git clone + python) |
+| Hell's Gate POC | Dynamic SSN parse reference | ✓ (git clone) |
+| windbg + IDA | Static reverse EDR DLL / kernel callback | ✗ (self-install) |
+| Sysmon + olaf config | Local verify env | ✓ |
 
-### 自举命令
+### Bootstrap command
 
 ```powershell
 powershell -NoProfile -ExecutionPolicy Bypass -File "&lt;SKILL_ROOT&gt;\skills\scripts\bootstrap-reverse.ps1" -Capability @('pe-sieve','syswhispers3','sysmon') -StartServices
 ```
 
-## 路由上下文
+## Routing context
 
-**上游入口**：
+**Upstream entry**:
 
-- `reverse-engineering/` — 需要先理解 EDR DLL / 驱动的实现
-- `attack-chain/` — 决定在 kill chain 的哪个阶段引入本 skill
+- `reverse-engineering/` — need to understand EDR DLL / driver first
+- `attack-chain/` — decide which kill-chain stage introduces this skill
 
-**同级关联**：
+**Peers**:
 
-- `pentest-tools/network-attack-defense.md` — 内网横向时如何与本 skill 联动
-- `malware-analysis/` — 反向视角，看检测方怎么写规则
-- `field-journal/` — 每次实战后回写经验
+- `pentest-tools/network-attack-defense.md` — how intranet lateral pairs with this skill
+- `malware-analysis/` — reverse view, how detectors write rules
+- `field-journal/` — write back after each engagement
 
-**下游交付**：
+**Downstream delivery**:
 
-- 生成报告时引用 MITRE ATT&CK **T1562 (Impair Defenses)**、T1562.001 (Disable or Modify Tools)、T1562.006 (Indicator Blocking)、T1055 (Process Injection)、T1027 (Obfuscated Files or Information)
+- Cite MITRE ATT&CK **T1562 (Impair Defenses)**, T1562.001 (Disable or Modify Tools), T1562.006 (Indicator Blocking), T1055 (Process Injection), T1027 (Obfuscated Files or Information) in reports
 
-## 法律边界声明
+## Legal boundary
 
-- 仅限合法授权的红队 / 对抗演练 / 自有产品测试
-- 操作前必须取得书面授权（SoW / 测试合同 / SRC 范围说明）
-- 不得用于未授权目标，不得超出授权范围
-- 发现高危问题立即向客户报告，遵循负责任披露
-- 所有报告中真实目标信息必须脱敏（IP / 主机名 / 域名 / 凭证占位）
+- Authorized red-team / adversary emulation / own-product testing only
+- MUST obtain written authorization before ops (SoW / test contract / SRC scope statement)
+- MUST NOT use on unauthorized targets; MUST NOT exceed authorized scope
+- Report high-severity issues to the customer immediately; follow responsible disclosure
+- Real target info in all reports MUST be redacted (IP / hostname / domain / credential placeholders)
 
-## 参考资料
+## References
 
-- 详细 hook 调研：`references/hook-survey.md`
-- unhook / syscall 技术：`references/unhook-techniques.md`
-- ETW / AMSI / 反取证：`references/telemetry-blinding.md`
-- MITRE ATT&CK T1562：<https://attack.mitre.org/techniques/T1562/>
+- Hook survey detail: `references/hook-survey.md`
+- unhook / syscall techniques: `references/unhook-techniques.md`
+- ETW / AMSI / anti-forensics: `references/telemetry-blinding.md`
+- MITRE ATT&CK T1562: <https://attack.mitre.org/techniques/T1562/>
 
 
-## 任务完成自检（声称完成前 MUST 通过）
+## Task-complete self-check (MUST pass before claiming done)
 
-- [ ] 我是否执行了工作流中的每一步（而不是只阅读）？
-- [ ] 我是否基于 `tool-index` 使用了真实工具路径？
-- [ ] 我是否产出了可复现证据（命令/脚本/截图/报告）？
-- [ ] 我是否完成并回写了 RULES 要求的 Checklist 项？
+- [ ] Did I execute every workflow step (not only read)?
+- [ ] Did I use real tool paths from `tool-index`?
+- [ ] Did I produce reproducible evidence (commands/scripts/screenshots/report)?
+- [ ] Did I complete and write back the RULES Checklist items?

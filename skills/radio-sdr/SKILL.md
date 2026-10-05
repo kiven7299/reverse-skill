@@ -5,47 +5,47 @@ description: Use for authorized RF/SDR security research including signal identi
 
 # RF / SDR Security Research
 
-## ACTION REQUIRED（读完后立刻执行）
+## ACTION REQUIRED (execute immediately after reading)
 
-1. `NOW`: **频谱与发射受法律严格管制**；仅授权频段/屏蔽室/实验目标
-2. `NOW`: scope 写明设备、频段、是否允许发射（默认只收）
-3. `ACT`: 只接收识别 → 解调分析 → 实验室复现评估
+1. `NOW`: **spectrum and transmit are strictly regulated**; authorized bands / Faraday cage / lab targets only
+2. `NOW`: scope MUST name device, band, and whether transmit is allowed (receive-only by default)
+3. `ACT`: receive-only ID → demod analysis → lab replay feasibility
 
-## 适用场景
+## When to use
 
-- 无线遥控/传感器等非 Wi-Fi RF（授权）
-- ADS-B/遥控等协议研究（合法接收）
-- 与 wifi-wireless 分工：本 skill 偏 **SDR 通用 RF**；Wi-Fi 攻防走 R29
+- Wireless remotes/sensors and other non-Wi-Fi RF (authorized)
+- ADS-B/remote-control protocol research (legal receive)
+- Split with wifi-wireless: this skill is **general SDR RF**; Wi-Fi offense/defense goes to R29
 
-## 工作流
+## Workflow
 
 ```text
-□ 法规与许可确认
-□ 只收：识别中心频率与调制
-□ GNU Radio / URH 分析
-□ 重放仅屏蔽室且书面允许
-□ 结论侧重：是否可未授权控制 / 加固建议
+□ Confirm regulations and licenses
+□ Receive-only: identify center frequency and modulation
+□ GNU Radio / URH analysis
+□ Replay only in a shielded room with written permission
+□ Conclusion focus: unauthorized-control feasibility / hardening advice
 ```
 
-## 工具链
+## Toolchain
 
-| 工具 | 用途 |
+| Tool | Purpose |
 |------|------|
-| RTL-SDR / HackRF（合规） | 收发硬件 |
-| URH / GNU Radio | 分析 |
-| Inspectrum | 信号 |
+| RTL-SDR / HackRF (compliant) | RX/TX hardware |
+| URH / GNU Radio | analysis |
+| Inspectrum | signals |
 
-## 参考
+## References
 
 - `references/sdr-lab-rules.md`
 - `../wifi-wireless/` `../ot-ics/` `../hardware-security/`
 
-## 路由上下文
+## Routing context
 
-**上游**: MASTER R38  
-**MUST NOT**: 干扰公共通信、未授权发射
+**Upstream**: MASTER R38
+**MUST NOT**: interfere with public comms, unauthorized transmit
 
-## 任务完成自检
+## Task-complete self-check
 
-- [ ] 是否默认只收并记录法规边界？
-- [ ] Checklist？
+- [ ] Default receive-only and recorded the legal boundary?
+- [ ] Checklist?
