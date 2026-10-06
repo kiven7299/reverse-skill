@@ -1,214 +1,248 @@
-# Cybersecurity Skills Router Overview
+# reverse-skill overview
 
-> A workflow router and tool orchestration system for code Agents: classify the task, choose the right Skill, then call real tools to execute.
+A **skill router** for AI coding clients. It classifies a security or reverse-engineering task, picks one PRIMARY playbook, then runs real tools. It is not a single-tool installer and not a red-team operating system.
 
-If this is your first time seeing this repository, start here. `README_AI.md` contains the AI Agent bootstrap entry with execution instructions.
+This fork: https://github.com/kiven7299/reverse-skill  
+Upstream: https://github.com/zhaoxuya520/reverse-skill  
+Machine paths: [`TOOLS.md`](../TOOLS.md). Sync: [`FORK.md`](../FORK.md), [`UPSTREAM-SYNC.md`](../UPSTREAM-SYNC.md).
 
-## What is this?
+Agents start at [`README_AI.md`](../README_AI.md) and [`AGENTS.md`](../AGENTS.md). Humans start here, then [`README.md`](../README.md).
 
-Cybersecurity Skills Router is a **Skill Router + Tool Orchestration** system for code Agents such as Claude Code, Codex CLI, Cursor, Cline, Windsurf, and Kiro.
+## What it is
 
-It helps an Agent handle APKs, binaries, frontend JavaScript, HTTP traffic, CTF challenges, firmware, and security-testing tasks through a repeatable workflow:
+When an agent sees an APK, binary, encrypted frontend param, CTF challenge, or authorized pentest target, this pack:
 
-1. classify the target and user intent;
-2. route to the right Skill and methodology;
-3. check local tools, MCP servers, and script entry points;
-4. call real tools to perform the analysis;
-5. generate reports and write reusable experience back into the field journal.
-
-In short:
-
-> This is not a single-tool installer. It is a workflow operating system for making AI Agents execute security and reverse-engineering tasks with less guessing and more structure.
-
-## Why does it exist?
-
-General-purpose code Agents often struggle with security and reverse-engineering workflows:
-
-- they do not know whether to use jadx, apktool, Frida, IDA, radare2, or BurpSuite;
-- APK, ELF, JS, PCAP, and CTF tasks require different playbooks;
-- tools, MCP servers, and local scripts are scattered across machines;
-- the same mistakes get repeated because experience is not reused;
-- the Agent may explain a lot while never entering the actual execution path.
-
-This project turns that chaos into a clear execution chain:
+1. routes by target type, user intent, and toolchain (`skills/config/routing.json`);
+2. lands a case (`work/<case>/scope.md`) and blocks ACT until `auth.status=granted`;
+3. opens the PRIMARY `SKILL.md` and runs ACTION REQUIRED;
+4. resolves tools from `TOOLS.md` then generated `skills/tool-index.md`;
+5. records Evidence → Finding → Path, then a report / field-journal.
 
 ```text
 User task
-  ↓
-RULES.md
-  ↓
-Skill Router
-  ↓
-Scenario-specific Skill
-  ↓
-Tools / MCP / Scripts
-  ↓
-Report + field journal
+  → RULES.md / AGENTS.md
+  → MASTER-ROUTING / master-route (PRIMARY)
+  → case-init / scope.md
+  → PRIMARY SKILL.md
+  → TOOLS.md → tool-index → bootstrap (manifest only)
+  → timeline + Evidence→Finding→Path → report
 ```
 
-## Core capabilities
+It exists because general agents guess commands, mix APK/ELF/JS/PCAP playbooks, scatter tool paths across machines, and repeat the same mistakes.
 
-| Capability | Description |
+## Status
+
+| Item | Value |
 |---|---|
-| Skill Router | Routes tasks by target type, user intent, and toolchain requirements. |
-| Tool Orchestration | Connects jadx, apktool, Frida, radare2, IDA, BurpSuite, browsers, and scripts. |
-| MCP Integration | Exposes BurpSuite, IDA, browser analysis, and other execution surfaces to Agents. |
-| Bootstrap Scripts | Detects local tool status and guides automatic or manual setup. |
-| Field Journal | Stores reusable lessons, commands, pitfalls, and patterns after tasks. |
-| Report Generation | Produces analysis reports, diagrams, attack paths, and CTF writeups. |
+| Version | 1.0.1 |
+| Routing rules | 44 (R0–R45), SSoT `skills/config/routing.json` |
+| Regression | 175+ hint → PRIMARY cases |
+| Tracked modules | 45 `SKILL.md` entries |
+| Fallback | R0 = `reverse-engineering/` |
+| Clients | Client-neutral (Kilo, Claude Code, Codex, Cursor, OpenCode, …) |
 
-## Platform support
+Change routing only in `routing.json`. `verify-routing-coherence.ps1` keeps `MASTER-ROUTING.md` in lockstep.
 
-| Platform | Status | Entry |
+## How to run a task
+
+Open this repository as the workspace. Do not copy `skills/` into another client folder.
+
+Windows:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File skills\scripts\master-route.ps1 -Hint "<task>"
+powershell -NoProfile -ExecutionPolicy Bypass -File skills\scripts\case-init.ps1 -Hint "<task>" -CaseName "my-case"
+```
+
+Linux / macOS / Kali:
+
+```bash
+bash skills/scripts/master-route.sh --hint "<task>"
+bash skills/scripts/case-init.sh --hint "<task>" --case-name "my-case"
+```
+
+Then open the printed PRIMARY `SKILL.md`. Offline local samples: `-Preset offline-sample` / `--preset offline-sample` plus an explicit sample path. `-Force` never bypasses the scope gate.
+
+Tool paths: edit [`TOOLS.md`](../TOOLS.md) when porting machines, then:
+
+```powershell
+powershell -NoProfile -ExecutionPolicy Bypass -File skills\scripts\refresh-tool-index.ps1
+```
+
+## Skill catalog (45)
+
+Grouped by job. Router priority is **not** this list order. See [Priority](#priority-high--low).
+
+### Reverse engineering
+
+| Module | Use when |
+|---|---|
+| `apk-reverse/` | Android APK unpack, jadx, smali, Frida, rebuild/sign |
+| `mobile-reverse/` | Android + iOS, Objection, pinning / root / jailbreak checks |
+| `js-reverse/` | Frontend signing, encrypted params, CDP / jshook |
+| `reverse-engineering/dsl-vm-reverse/` | Custom JS opcode VM / risk-control engine |
+| `dotnet-reverse/` | Managed PE, dnSpy / de4dot, IL patch |
+| `ida-reverse/` | IDA Pro deep decompile / MCP |
+| `ghidra-reverse/` | Ghidra GUI / headless / MCP when IDA is absent |
+| `binary-ninja-reverse/` | HLIL / MLIL / LLIL |
+| `radare2/` | CLI r2 / rabin2 / rasm2 / radiff2 |
+| `go-rust-reverse/` | Stripped Go / Rust, pclntab |
+| `macos-reverse/` | Mach-O, codesign, ObjC / Swift |
+| `browser-extension-reverse/` | Chrome / Firefox extensions, MV3 |
+| `protocol-reverse/` | Custom binary protocol, Protobuf / gRPC, PCAP frames |
+| `malware-analysis/` | Sample analysis, YARA / Sigma, anti-analysis |
+| `reverse-engineering/` | Generic RE, anti-debug, OLLVM, unknown binary (R0) |
+
+### Reverse → exploit
+
+| Module | Use when |
+|---|---|
+| `binary-diff/` | Cross-version **symbol** migration (not exploit writing) |
+| `patch-diff-exploit/` | N-day from vendor patch → PoC |
+| `pwn-chain/` | Stack / heap / kernel pwn to a **working** exploit |
+| `edr-bypass-re/` | Reverse EDR hooks / ETW / AMSI (authorized) |
+| `firmware-pentest/` | Firmware / IoT, OWASP FSTM extract → emulate → exploit |
+| `hardware-security/` | UART / JTAG / SWD, read-only extract |
+
+### Pentest / identity / infra
+
+| Module | Use when |
+|---|---|
+| `attack-chain/` | Multi-stage lead (recon → access → lateral). Dispatch, do not do every stage here |
+| `pentest-tools/` | Nmap, Nuclei, SQLMap, FFUF, Hashcat, Burp MCP |
+| `pentest-tools/src-hunter/` | SRC / bug-bounty hunting playbooks (needs granted scope) |
+| `api-security/` | REST / GraphQL / WebSocket, BOLA / JWT |
+| `windows-ad/` | Kerberos, AD CS, BloodHound, relay |
+| `identity-federation/` | SAML / OIDC / OAuth SSO mismatches |
+| `cloud-k8s/` | IMDS / IAM, container escape, K8s RBAC |
+| `database-security/` | MySQL / PG / MSSQL / Mongo / Redis |
+| `supply-chain-security/` | SBOM / SCA / CI-CD / image integrity |
+| `thick-client/` | Desktop C/S, local storage, IPC, update channel |
+| `ot-ics/` | Purdue zoning, PLC / SCADA, **passive-first** |
+| `wifi-wireless/` | Authorized Wi-Fi, handshake / PMKID, lab only |
+| `radio-sdr/` | RF / SDR, receive-only by default |
+
+### Blue / intel / AI
+
+| Module | Use when |
+|---|---|
+| `digital-forensics/` | Memory / disk timeline, PCAP, IR preservation |
+| `threat-hunting/` | Hypothesis hunt, Sigma / YARA detection engineering |
+| `threat-intelligence/` | Public OSINT / IOC enrichment |
+| `email-security/` | Phishing teardown, SPF / DKIM / DMARC, BEC |
+| `code-audit/` | Semgrep / CodeQL, white-box |
+| `llm-security/` | Prompt injection, tool abuse, agent hijack |
+
+### CTF and deliverables
+
+| Module | Use when |
+|---|---|
+| `ctf-sandbox/` | Single PRIMARY latch. Downstream is `CTF-Sandbox-Orchestrator/` (~40 competition skills). Do not dump those into `routing.json` |
+| `ops/` | Scope, roles, evidence chain, timeline, identity, skill supply-chain |
+| `case-review/` | Read-only Evidence-graph check before report handoff |
+| `docs-generator/` | Reverse / pentest / CTF reports |
+| `diagram-generator/` | Mermaid / Graphviz / PlantUML |
+| `browser-automation/` | Playwright + Windows desktop UIA |
+
+## Priority (high → low)
+
+Must match `routing.json` `priority`. First strong keyword hit with highest score wins.
+
+| ID | Condition | PRIMARY |
 |---|---|---|
-| Windows | Full primary path | `README.md`, PowerShell scripts |
-| Kali Linux | Specialized support | `kali/README-kali.md` |
-| Ubuntu / Debian Linux | Generic support | `platforms/linux.md`, `skills/scripts/bootstrap-reverse.sh`, `skills/scripts/refresh-tool-index.sh` |
-| macOS | Generic support | `platforms/macos.md`, `skills/scripts/bootstrap-reverse.sh`, `skills/scripts/refresh-tool-index.sh` |
+| R4 | DSL VM / custom opcode VM | `dsl-vm-reverse/` |
+| R1 | APK / smali / jadx / apktool | `apk-reverse/` |
+| R2 | IPA / iOS / Objection / MobSF | `mobile-reverse/` |
+| R3 | JS signing / frontend crypto / CDP | `js-reverse/` |
+| R30 | Browser extension | `browser-extension-reverse/` |
+| R31 | macOS / Mach-O | `macos-reverse/` |
+| R33 | Go / Rust binary | `go-rust-reverse/` |
+| R5 | .NET / dnSpy / de4dot | `dotnet-reverse/` |
+| R9 | Malware / YARA / sandbox | `malware-analysis/` |
+| R21 | Protocol / Protobuf / PCAP protocol | `protocol-reverse/` |
+| R22 | Ghidra | `ghidra-reverse/` |
+| R45 | Binary Ninja / HLIL / MLIL | `binary-ninja-reverse/` |
+| R6 | IDA / deep decompile | `ida-reverse/` |
+| R7 | radare2 / r2 | `radare2/` |
+| R8 | Firmware / binwalk / IoT | `firmware-pentest/` |
+| R34 | UART / JTAG | `hardware-security/` |
+| R28 | OT / ICS | `ot-ics/` |
+| R17 | pwn / ROP / heap | `pwn-chain/` |
+| R16 | N-day / patch diff | `patch-diff-exploit/` |
+| R18 | EDR / syscall bypass | `edr-bypass-re/` |
+| R24 | Windows / AD / Kerberos | `windows-ad/` |
+| R37 | SAML / OIDC | `identity-federation/` |
+| R23 | Cloud / K8s | `cloud-k8s/` |
+| R35 | Database | `database-security/` |
+| R25 | Forensics | `digital-forensics/` |
+| R44 | OSINT / threat intel | `threat-intelligence/` |
+| R36 | Email / phishing | `email-security/` |
+| R29 | Wi-Fi | `wifi-wireless/` |
+| R38 | RF / SDR | `radio-sdr/` |
+| R32 | Thick client | `thick-client/` |
+| R26 | SAST / Semgrep | `code-audit/` |
+| R27 | Threat hunting | `threat-hunting/` |
+| R10 | Full attack chain | `attack-chain/` |
+| R11 | Nmap / Nuclei / pentest tools | `pentest-tools/` |
+| R12 | API / GraphQL / BOLA | `api-security/` |
+| R13 | SBOM / supply chain | `supply-chain-security/` |
+| R14 | LLM / prompt injection | `llm-security/` |
+| R15 | Bindiff / symbol migration | `binary-diff/` |
+| R19 | Browser / desktop automation | `browser-automation/` |
+| R40 | Case / Evidence review | `case-review/` |
+| R20 | Report / writeup | `docs-generator/` |
+| R39 | Diagrams | `diagram-generator/` |
+| R41 | CTF / AWD / range | `ctf-sandbox/` |
+| R0 | Generic / unknown binary | `reverse-engineering/` |
 
-See [PLATFORMS.md](PLATFORMS.md) for the full platform matrix. Ordinary Linux and macOS users can list bootstrap capabilities with:
+No strong hit → R0, then read `skills/routing.md`.
 
-```bash
-bash skills/scripts/bootstrap-reverse.sh --list
-```
+Chinese **hint keywords** stay in `routing.json` so Chinese user phrasing still matches. Playbooks are English.
 
-For index refresh only, run:
+## Ops contracts
 
-```bash
-bash skills/scripts/refresh-tool-index.sh
-```
-
-## Supported Agent clients
-
-- Claude Code
-- Codex CLI
-- Cursor
-- Cline
-- Windsurf
-- Kiro
-- Other code Agents that support project rules, system prompts, MCP, or external tools
-
-The repository is not tied to one client. Its core assets are `RULES.md`, `skills/SKILL.md`, `skills/routing.md`, tool indexes, sub-skills, and MCP/script entry points.
-
-## Supported scenarios
-
-| Scenario | Main entry |
+| File | Role |
 |---|---|
-| APK / Android analysis | `skills/apk-reverse/`, `skills/mobile-reverse/` |
-| Binary reverse engineering | `skills/ida-reverse/`, `skills/binary-ninja-reverse/`, `skills/radare2/`, `skills/reverse-engineering/` |
-| Frontend JS signing / parameter analysis | `skills/js-reverse/` |
-| HTTP traffic / request replay | BurpSuite MCP, anything-analyzer, browser automation |
-| CTF / security competitions | `CTF-Sandbox-Orchestrator/` |
-| Firmware / IoT analysis | `skills/firmware-pentest/` |
-| Patch diff / N-day analysis | `skills/patch-diff-exploit/` |
-| Security-testing toolchain | `skills/pentest-tools/` |
-| LLM / Agent security | `skills/llm-security/` |
-| Reports and diagrams | `skills/docs-generator/`, `skills/diagram-generator/` |
+| `skills/ops/IDENTITY.md` | Router pack, not a Z3r0 platform |
+| `skills/ops/scope-contract.md` | Auth + `network_profile` before ACT |
+| `skills/ops/evidence-finding-path.md` | Evidence → Finding → Path |
+| `skills/ops/role-map.md` | lead / cie / cpe / cre in one session |
+| `skills/ops/timeline-workitem.md` | Append-only timeline, coverage |
+| `skills/ops/sandbox-profile.md` | Bootstrap vs manual tools |
+| `skills/ops/skill-supply-chain.md` | External skill / MCP install gate |
 
-## Example workflow
+`network_profile`: `offline` | `lab_only` | `authorized_target_only` | `unrestricted_lab`.
 
-User request:
+## This machine
 
-```text
-Analyze the signature verification logic in this APK.
-```
+Prefer paths in [`TOOLS.md`](../TOOLS.md). Already mapped: jadx CLI/GUI, apktool, adb, zipalign, apksigner, IDA 9.1, Ghidra 10.4, radare2, Frida, nmap, nuclei, Burp, Reqable, dnSpy, ILSpy.
 
-Expected Agent behavior:
+Not mapped / missing: YARA, binwalk, Binary Ninja, JEB Pro, SecLists. Do not install cracks. Bootstrap only names in `skills/scripts/bootstrap-manifest.json`.
 
-1. identify the task as APK / Android / signature verification;
-2. route to `apk-reverse`, and optionally pivot to Frida or native `.so` analysis;
-3. check whether jadx, apktool, adb, and Frida are available;
-4. unpack the APK and inspect Manifest, Java code, and native libraries;
-5. decide whether static analysis is enough or dynamic hooks are needed;
-6. report verification locations, call chains, bypass ideas, and validation steps;
-7. generate a report and write reusable lessons into the field journal.
+## What this is not
 
-## Repository layout
+- Not a required Postgres / React / Docker control plane
+- Not 800 vendor-copied micro-skills
+- Not permission to scan the internet. Naming a host is not `auth.status=granted`
+- MCP (IDA, Burp, jadx, Reqable, jshook) is opt-in. No silent global client config
 
-```text
-.
-├── README.md                    # Main entry (English)
-├── README_zh.md                 # Main entry (Chinese)
-├── README_AI.md                 # AI Agent bootstrap entry (English)
-├── RULES.md                     # Global routing and execution rules
-├── docs/OVERVIEW.md              # Detailed overview (English)
-├── docs/OVERVIEW_zh.md           # Detailed overview (Chinese)
-├── docs/ARCHITECTURE.md          # Architecture notes
-├── docs/PLATFORMS.md             # Platform support matrix
-├── skills/                      # Main Skill directory
-│   ├── SKILL.md                 # Controller entry
-│   ├── routing.md               # Routing matrix
-│   ├── field-journal/           # Experience journal
-│   ├── apk-reverse/
-│   ├── js-reverse/
-│   ├── reverse-engineering/
-│   ├── ida-reverse/
-│   ├── radare2/
-│   └── ...
-├── CTF-Sandbox-Orchestrator/    # CTF scenario sub-skills
-├── burp-mcp-full/               # BurpSuite MCP control module
-└── kali/                        # Kali helper scripts
-```
+## Related docs
 
-## Quick start
+| Doc | Purpose |
+|---|---|
+| [README.md](../README.md) | Project entry |
+| [README_AI.md](../README_AI.md) | Agent bootstrap |
+| [AGENTS.md](../AGENTS.md) | Client-neutral repo rules |
+| [RULES.md](../RULES.md) | Behavior chain |
+| [skills/MASTER-ROUTING.md](../skills/MASTER-ROUTING.md) | PRIMARY ladder |
+| [skills/routing.md](../skills/routing.md) | Full matrix |
+| [skills/INDEX.md](../skills/INDEX.md) | Generated module index |
+| [docs/QUICKSTART.md](QUICKSTART.md) | Clone, open workspace, client notes |
+| [docs/PLATFORMS.md](PLATFORMS.md) | OS matrix |
+| [TOOLS.md](../TOOLS.md) | Local tool paths |
 
-### For humans
+## License and use
 
-1. Read this overview to understand the project;
-2. read `README.md` and let your Agent run the bootstrap flow;
-3. configure MCP, project rules, or system instructions for your client;
-4. validate routing with a real task.
+MIT for this pack. `CTF-Sandbox-Orchestrator/` is GPLv3. Third-party tools keep their own licenses.
 
-### For AI Agents
-
-If you are an AI Agent, do not stop at this overview. Enter the execution path:
-
-1. read `README_AI.md`;
-2. execute section 0;
-3. read `RULES.md`;
-4. load `skills/SKILL.md` and `skills/routing.md`;
-5. route first, then execute.
-
-## How is this different from a prompt pack?
-
-A prompt pack usually gives the model advice. This project emphasizes executable structure:
-
-- clear entries: `RULES.md`, `SKILL.md`, `routing.md`;
-- scenario routing: different targets enter different Skills;
-- execution surfaces: MCP, scripts, and local toolchains;
-- experience feedback: completed tasks update reusable knowledge;
-- migration support: rescan tool indexes and recover the workflow on a new machine.
-
-It is designed to make the Agent guess less, skip less, and execute more reliably.
-
-## Security and responsible use
-
-This project is intended for authorized security research, reverse engineering, CTFs, teaching labs, internal security testing, and defensive validation. Make sure you have permission to analyze or test the target system.
-
-Rules in the bootstrap README are meant to reduce repeated confirmation loops and workflow stalling in authorized environments. They do not encourage unauthorized access, destructive operations, or attacks against real targets.
-
-## Project positioning
-
-A concise way to explain the project:
-
-> I designed and open-sourced a Skill Router for code Agents that turns reverse-engineering, security-testing, and CTF tasks into routable, executable, and reusable workflows, with MCP/script integrations for local tools.
-
-Keywords: AI Agent, Skill Router, Tool Orchestration, MCP, Workflow Automation, Security Analysis, Field Journal.
-
-## Related documents
-
-- [README.md](../README.md): Main entry (English)
-- [README_zh.md](../README_zh.md): Main entry (Chinese)
-- [README_AI.md](../README_AI.md): AI bootstrap entry
-- [OVERVIEW_zh.md](OVERVIEW_zh.md): Chinese overview
-- [PLATFORMS.md](PLATFORMS.md): platform support matrix
-- [platforms/linux.md](platforms/linux.md): generic Linux setup
-- [platforms/macos.md](platforms/macos.md): macOS setup
-- [RULES.md](../RULES.md): global execution rules
-- [ARCHITECTURE.md](ARCHITECTURE.md): architecture notes
-- [skills/routing.md](../skills/routing.md): routing matrix
-- [burp-mcp-full/README.md](../burp-mcp-full/README.md): BurpSuite MCP module
-
-## License
-
-MIT License. See [LICENSE](../LICENSE).
+Authorized research, CTF, teaching, and systems you own or have written permission to test. Unauthorized access, scanning, or exploitation is forbidden.

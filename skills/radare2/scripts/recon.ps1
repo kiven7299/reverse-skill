@@ -9,7 +9,7 @@
     [switch]$RunAnalysis
 )
 
-# 强制当前脚本使用 UTF-8 输出，尽量减少中文标题乱码。
+# Force UTF-8 output to avoid garbled section titles.
 [Console]::InputEncoding = [System.Text.UTF8Encoding]::new($false)
 [Console]::OutputEncoding = [System.Text.UTF8Encoding]::new($false)
 $OutputEncoding = [System.Text.UTF8Encoding]::new($false)
@@ -35,7 +35,7 @@ function Get-RequiredToolSpec {
             $spec = Resolve-ReverseToolSpec -Name $Name
         }
         if (-not $spec.Available) {
-            throw "缺少命令：$Name — 自动安装失败，请手动安装。参考: https://github.com/radareorg/radare2"
+            throw "Missing command: $Name — auto-install failed; install manually. See: https://github.com/radareorg/radare2"
         }
     }
     return $spec
@@ -47,7 +47,7 @@ function Write-Section {
     [string]$Title
     )
 
-    # 用固定分段标题，方便人看，也方便后续 grep。
+    # Fixed section titles: human-readable and grep-friendly.
     ""
     "=== $Title ==="
 }
@@ -58,28 +58,28 @@ if ($RunAnalysis) {
     $r2 = Get-RequiredToolSpec -Name 'r2'
 }
 
-# 将输入路径规范化成绝对路径，避免 r2/rabin2 在相对路径下歧义解析。
+# Normalize input to an absolute path so r2/rabin2 do not mis-resolve relatives.
 $resolvedPath = Resolve-Path -LiteralPath $TargetPath
 $target = $resolvedPath.Path
 
-"目标文件: $target"
+"Target file: $target"
 
-Write-Section -Title '基本信息'
+Write-Section -Title 'Basic info'
 & $rabin2.Command @($rabin2.PrefixArgs + @('-I', '--', $target))
 
-Write-Section -Title '节区'
+Write-Section -Title 'Sections'
 & $rabin2.Command @($rabin2.PrefixArgs + @('-S', '--', $target))
 
-Write-Section -Title '导入'
+Write-Section -Title 'Imports'
 & $rabin2.Command @($rabin2.PrefixArgs + @('-i', '--', $target)) | Select-Object -First $ImportsLimit
 
-Write-Section -Title '导出'
+Write-Section -Title 'Exports'
 & $rabin2.Command @($rabin2.PrefixArgs + @('-E', '--', $target))
 
-Write-Section -Title '字符串'
+Write-Section -Title 'Strings'
 & $rabin2.Command @($rabin2.PrefixArgs + @('-zz', '--', $target)) | Select-Object -First $StringsLimit
 
 if ($RunAnalysis) {
-    Write-Section -Title '函数与入口分析'
+    Write-Section -Title 'Functions and entry analysis'
     & $r2.Command @($r2.PrefixArgs + @('-A', '-q', '-c', 's entry0;afl;iz;ii;q', '--', $target))
 }

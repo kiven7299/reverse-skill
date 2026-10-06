@@ -1,68 +1,68 @@
-# 红队 Sharp* 工具分析 & 工具安装矩阵 & dnSpy MCP
+# Red-team Sharp* analysis & tool install matrix & dnSpy MCP
 
-## 红队 Sharp* 工具分析
+## Red-team Sharp* analysis
 
-红队工具大量用 C# 写（Sharp* 系列），逆向它们是常见场景：理解检测逻辑、改特征、提取内嵌配置。
+Many red-team tools are C# (Sharp* family). Reverse them to understand detect logic, change signatures, extract embedded config.
 
-### 常见 Sharp* 工具速查
+### Common Sharp* cheat sheet
 
-| 工具 | 功能 | 逆向关注点 |
+| Tool | Function | Reverse focus |
 |------|------|-----------|
-| **Rubeus** | Kerberos 攻击（AS-REP roast / Kerberoast / S4U / pass-the-ticket）| Rubeus 工程结构固定，找 `Interop.*` P/Invoke 段看 native 调用 |
-| **SharpHound** | BloodHound 数据采集器 | LDAP 查询逻辑、采集的属性集合 |
-| **SharpShell / SharpWS** | 远程执行、横向 | WMI / WinRM 调用、命令混淆 |
-| **Seatbelt** | 信息收集 | 收集项清单、判断逻辑 |
-| **SharpRoast** | Kerberoasting | 票据请求/解析 |
-| **Inveigh / SharpSploit** | 中间人 / 通用利用框架 | 反射加载、API 调用链 |
+| **Rubeus** | Kerberos (AS-REP roast / Kerberoast / S4U / pass-the-ticket) | Fixed project layout; `Interop.*` P/Invoke for native calls |
+| **SharpHound** | BloodHound collector | LDAP queries, collected attributes |
+| **SharpShell / SharpWS** | Remote exec, lateral | WMI / WinRM, command obfuscation |
+| **Seatbelt** | Recon | Collection items, decision logic |
+| **SharpRoast** | Kerberoasting | Ticket request/parse |
+| **Inveigh / SharpSploit** | MitM / exploit framework | Reflection load, API call chain |
 
-### 通用分析套路
+### Generic analysis loop
 
 ```text
-1. dnSpyEx 打开（通常没混淆，少数团队会加 ConfuserEx）
-2. 看 Program.Main 或入口命令分发（Rubeus 是 switch(command) 结构）
-3. 找目标命令的实现类/方法
-4. 看 P/Invoke 段（Interop.* 命名空间）—— native API 调用在这里
-5. 提取内嵌资源（有些工具嵌配置/模板）
-6. 如需改特征（EDR 规避）：改命令字符串、API 调用、字符串常量
+1. Open in dnSpyEx (usually unobfuscated; some teams add ConfuserEx)
+2. Read Program.Main or command dispatch (Rubeus uses switch(command))
+3. Find the command implementation class/method
+4. Read P/Invoke (Interop.* namespace) — native APIs live here
+5. Extract embedded resources (some tools embed config/templates)
+6. If changing signatures (EDR evade): command strings, API calls, string constants
 ```
 
-### Rubeus 结构示例
+### Rubeus structure example
 
-Rubeus 用命令分派，每个子命令一个类。找 Kerberoasting 逻辑：
+Rubeus dispatches by command; one class per subcommand. Kerberoasting:
 
 ```text
-入口: Rubeus.CommandLineParser → 解析 args
-分派: switch(command) → "kerberoast" → 执行 Ask.TGS(...)
+Entry: Rubeus.CommandLineParser → parse args
+Dispatch: switch(command) → "kerberoast" → Ask.TGS(...)
 P/Invoke: Rubeus.Interop.Lsa* / Native.cs → native Kerberos API
-关键: LsaCallAuthenticationPackage (KERB_RETRIEVE_TKT_REQUEST)
+Key: LsaCallAuthenticationPackage (KERB_RETRIEVE_TKT_REQUEST)
 ```
 
-改特征（规避）：把命令字符串 `"kerberoast"` 改成自定义名、把 `Rubeus` banner 字符串改掉、改 P/Invoke 调用顺序。
+Signature evade: rename `"kerberoast"`, change `Rubeus` banner strings, reorder P/Invoke.
 
-### 内嵌配置提取
+### Embedded config extract
 
-很多 loader/工具把 C2、密钥、证书加密嵌在资源或字段：
+Many loaders/tools encrypt C2, keys, certs into resources or fields:
 
 ```powershell
-# dnSpyEx 里看 Resources（资源树）
-# 或命令行
+# dnSpyEx Resources tree
+# or CLI
 powershell -c "[System.Reflection.Assembly]::LoadFile('target.exe').GetManifestResourceNames()"
-# 找到资源后 dnSpyEx 右键 → 提取 / Save
+# After finding a resource: dnSpyEx right-click → Extract / Save
 ```
 
-运行时解密的配置 → 动态断在解密方法返回点 dump 明文（见 `common-workflow.md`）。
+Runtime-decrypted config → break on decrypt return and dump plaintext (see `common-workflow.md`).
 
 ---
 
-## 工具安装矩阵
+## Tool install matrix
 
-### Windows（首选，dnSpyEx 是 GUI）
+### Windows (preferred; dnSpyEx is GUI)
 
 ```powershell
-# 方式 A：Chocolatey
+# A: Chocolatey
 choco install dnspy ilspy de4dot detect-it-easy
 
-# 方式 B：手动下载 release（推荐，版本可控）
+# B: Manual release download (preferred; pin versions)
 # dnSpyEx:    https://github.com/dnSpyEx/dnSpy/releases
 # de4dot:     https://github.com/de4dot/de4dot/releases
 # ILSpy:      https://github.com/icsharpcode/ILSpy/releases
@@ -70,54 +70,54 @@ choco install dnspy ilspy de4dot detect-it-easy
 # dnlib:      dotnet add package dnlib  (NuGet)
 ```
 
-### Linux / macOS（无 dnSpyEx GUI，用 CLI）
+### Linux / macOS (no dnSpyEx GUI; CLI)
 
 ```bash
-# ILSpy CLI 反编译
+# ILSpy CLI decompile
 dotnet tool install -g ilspycmd
-ilspycmd target.exe -p -o outdir/         # 反编译到目录
+ilspycmd target.exe -p -o outdir/         # decompile to dir
 
-# de4dot 跨平台（需 mono 或 dotnet）
-# 从 release 下载 de4dot 产物的 .dll，用 dotnet 跑
+# de4dot cross-platform (mono or dotnet)
+# Download de4dot .dll from release; run with dotnet
 dotnet de4dot.dll target.exe -o target-clean.exe
 
-# dnlib（脚本化，需 dotnet SDK）
+# dnlib (scripted; needs dotnet SDK)
 dotnet new console -o dnclean && cd dnclean
 dotnet add package dnlib
 
 # DIE CLI (diec)
-# Linux: 从 https://github.com/horsicq/Detect-It-Easy 装
+# Linux: install from https://github.com/horsicq/Detect-It-Easy
 diec target.exe
 ```
 
-### .NET runtime 前置
+### .NET runtime prerequisite
 
 ```bash
 # Linux
-sudo apt install dotnet-runtime-8.0        # 或 6.0/7.0 看目标
+sudo apt install dotnet-runtime-8.0        # or 6.0/7.0 per target
 # macOS
 brew install --cask dotnet-sdk
 ```
 
-> dnSpyEx（带 IL 编辑器 + 调试器）只有 Windows GUI 版。Linux/macOS 做 .NET 逆向只能用 `ilspycmd` 反编译 + `dnlib` 脚本 patch，没有等价的交互调试 GUI。需要 patch 时优先上 Windows。
+> dnSpyEx (IL editor + debugger) is Windows GUI only. Linux/macOS .NET reverse is `ilspycmd` decompile + `dnlib` script patch; no equivalent interactive debug GUI. Prefer Windows when patching.
 
 ---
 
-## dnSpy MCP 集成
+## dnSpy MCP integration
 
-社区已有多个 dnSpy MCP 项目，把 dnSpy 的反编译/IL 检查暴露成 MCP 工具，AI 可直接调用 —— 和 reverse-skill 的 MCP 哲学完全一致。
+Several community dnSpy MCP projects expose decompile/IL inspect as MCP tools so an AI can call them — same MCP philosophy as reverse-skill.
 
-### 主流 dnSpy MCP 项目
+### Mainstream dnSpy MCP projects
 
-| 项目 | 特点 | 适配 |
+| Project | Notes | Fit |
 |------|------|------|
-| **soufianetahiri/dnspy-mcp** | 核心 MCP Server，暴露 decompile、IL inspection 等工具 | Claude Code / Cursor |
-| **AgentSmithers/DnSpy-MCPserver-Extension** | 作为 dnSpyEx 扩展运行，深度集成 GUI | dnSpyEx 内加载 |
-| **malwarecakefactory/dnspy-mcp-extension** | 33 个工具，覆盖 triage → deobfuscation 全流程 | 全流程自动化 |
+| **soufianetahiri/dnspy-mcp** | Core MCP server: decompile, IL inspection | Claude Code / Cursor |
+| **AgentSmithers/DnSpy-MCPserver-Extension** | Runs as dnSpyEx extension; deep GUI | Load inside dnSpyEx |
+| **malwarecakefactory/dnspy-mcp-extension** | 33 tools, triage → deobfuscation | Full-flow automation |
 
-### 注册到 Claude MCP 配置
+### Register in Claude MCP config
 
-按对应项目 README 装 dnSpyEx 扩展后，在 `~/.claude/mcp.json` 注册（具体 command/args 以项目 README 为准）：
+Install the dnSpyEx extension per project README, then register in `~/.claude/mcp.json` (command/args per README):
 
 ```json
 {
@@ -130,35 +130,35 @@ brew install --cask dotnet-sdk
 }
 ```
 
-注册后本 skill 的 AI 联动路径：用户说"分析这个 .NET"→ 路由到 `dotnet-reverse/` → 优先调 `dnspy_decompile` / `dnspy_inspect_il` 工具面 → 不行再切 GUI。
+After register, this skill's AI path: user says "analyze this .NET" → route to `dotnet-reverse/` → prefer `dnspy_decompile` / `dnspy_inspect_il` → fall back to GUI.
 
-> dnSpy MCP 不是 reverse-skill 内置 bootstrap 能力，需用户手动按项目 README 安装扩展并注册。后续可考虑加进 `bootstrap-manifest.json`。
+> dnSpy MCP is not a reverse-skill built-in bootstrap. User installs the extension and registers it. Consider adding to `bootstrap-manifest.json` later.
 
 ---
 
-## 社区资源索引
+## Community resource index
 
-### 强烈推荐
+### Strongly recommended
 
-- **Washi 博客** — .NET 逆向大佬：https://blog.washi.dev/posts/misconceptions-about-dotnet/
-  - 核心观点：**不要过度依赖 dnSpy 的 C# 反编译器，要熟悉 IL 编辑器**（与本项目 IL 优先原则一致）
-- **dnSpyEx** — dnSpy 的活跃维护分支：https://github.com/dnSpyEx/dnSpy
-- **de4dot** — .NET 脱混淆：https://github.com/de4dot/de4dot
-- **dnlib** — 元数据编程：https://github.com/dnlib/dnlib
+- **Washi blog** — .NET reverse: https://blog.washi.dev/posts/misconceptions-about-dotnet/
+  - Core: **do not over-rely on dnSpy C# decompiler; know the IL editor** (matches this pack's IL-first rule)
+- **dnSpyEx** — active dnSpy fork: https://github.com/dnSpyEx/dnSpy
+- **de4dot** — .NET deobfuscate: https://github.com/de4dot/de4dot
+- **dnlib** — metadata programming: https://github.com/dnlib/dnlib
 
-### 实战教程
+### Field tutorials
 
-- Medium《De-obfuscating and reversing a .NET/C# spyware》— dnSpy + de4dot 实战 info-stealer 脱混淆
-- YouTube《dnSpy Patch .NET EXEs & DLLs》— 手把手 patch + keygen
-- 看雪论坛 .NET 逆向版块 — 搜 ".net 逆向" / "dnSpy" / "ConfuserEx" 有大量实战帖、Nuitka 逆向、免杀讨论
-- Guided Hacking《Top 5 .NET Reverse Engineering Tools》— dnSpy 仍排第一
-- StackExchange / Reverse Engineering — `DynamicMethod` 调试等进阶问题
+- Medium *De-obfuscating and reversing a .NET/C# spyware* — dnSpy + de4dot vs info-stealer
+- YouTube *dnSpy Patch .NET EXEs & DLLs* — patch + keygen walkthrough
+- Kanxue .NET reverse board — search ".net reverse" / "dnSpy" / "ConfuserEx" for field posts, Nuitka reverse, AV evade
+- Guided Hacking *Top 5 .NET Reverse Engineering Tools* — dnSpy still #1
+- StackExchange / Reverse Engineering — `DynamicMethod` debug and similar
 
-### 本仓库已有 .NET 资源（联动）
+### .NET resources already in this repo
 
-- `reverse-engineering/tools.md` `.NET Analysis` 段 — dnSpy/ILSpy 工具速查 + Codegate 2013 两阶段 XOR+AES-CBC 模式
-- `reverse-engineering/field-notes.md` `.NET` 段 — 工具速记
-- `reverse-engineering/awesome-re-resources.md` — de4dot 入选
-- `field-journal/seed-014_unity-il2cpp-reverse.md` — Unity IL2CPP（native 侧，与 .NET 托管层互补）
+- `reverse-engineering/tools.md` `.NET Analysis` — dnSpy/ILSpy cheat + Codegate 2013 two-stage XOR+AES-CBC
+- `reverse-engineering/field-notes.md` `.NET` — tool notes
+- `reverse-engineering/awesome-re-resources.md` — de4dot listed
+- `field-journal/seed-014_unity-il2cpp-reverse.md` — Unity IL2CPP (native; complements managed .NET)
 
-.NET 逆向深度内容统一收敛到本模块，`reverse-engineering/` 里保留速查索引即可。
+Deep .NET content lives in this module; keep a cheat index in `reverse-engineering/`.

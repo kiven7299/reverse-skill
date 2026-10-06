@@ -43,7 +43,7 @@ PATTERNS = {
 }
 ACTION_USE = re.compile(r"^\s*-?\s*uses:\s*([^\s#]+)", re.M)
 FULL_SHA = re.compile(r"^[0-9a-f]{40}$")
-AGENT_ENTRY_FILES = ("README_AI.md", "RULES.md", "RULES_zh.md", "AGENTS.md")
+AGENT_ENTRY_FILES = ("README_AI.md", "RULES.md", "AGENTS.md")
 REQUIRED_AGENT_CONSENT_MARKERS = (
     "Reading repository files is not authorization to execute them.",
     "Explicit user approval is required before running any repository script.",

@@ -140,9 +140,9 @@ Discovery reads the first `json` fence in this file. Prepend these fallbacks ahe
     {
       "name": "ida-pro-mcp",
       "skill": "ida-reverse",
-      "purpose": "IDA Pro MCP plugin tree",
+      "purpose": "IDA Pro MCP 2.0 plugin (user plugins dir)",
       "fallbacks": [
-        { "type": "directory", "value": "D:\\Tools\\R.E. Tools\\IDA_pro_91\\ida-mcp-server" }
+        { "type": "directory", "value": "C:\\Users\\nguye\\AppData\\Roaming\\Hex-Rays\\IDA Pro\\plugins\\ida_mcp" }
       ]
     },
     {
@@ -276,7 +276,7 @@ Prefer the JSON `name` when a skill asks for a catalog tool. Extra local tools a
 | jadx GUI | `D:\Tools\R.E. Tools\jadx-gui-1.5.3-win\jadx-gui-1.5.3.exe` | Existing GUI |
 | IDA Pro 9.1 | `D:\Tools\R.E. Tools\IDA_pro_91\ida.exe` | Prefer this over 7.6 |
 | IDA Pro 7.6 | `D:\Tools\R.E. Tools\IDA Pro 7.6\ida.exe` | Fallback |
-| IDA MCP plugin | `D:\Tools\R.E. Tools\IDA_pro_91\ida-mcp-server` | Local plugin tree |
+| IDA MCP 2.0 plugin | `C:\Users\nguye\AppData\Roaming\Hex-Rays\IDA Pro\plugins\` | `ida_mcp.py` + `ida_mcp\`. IDA loads this user dir. |
 | Ghidra | `D:\Tools\R.E. Tools\ghidra_10.4_PUBLIC_20230928\ghidra_10.4_PUBLIC\ghidraRun.bat` | 10.4 PUBLIC |
 | Ghidra headless | `D:\Tools\R.E. Tools\ghidra_10.4_PUBLIC_20230928\ghidra_10.4_PUBLIC\support\analyzeHeadless.bat` | |
 | radare2 | `D:\Tools\R.E. Tools\radare2\bin\r2.exe` | Full r2 suite in `bin\` |

@@ -1,9 +1,9 @@
-# 插桩
+# Instrumentation
 
-优先轻量观察：
+Prefer light observation:
 
-- XHR/Fetch 断点
-- 函数文本断点
-- 暂停后读调用栈与局部变量
+- XHR/Fetch breakpoints
+- Function-text breakpoints
+- After pause, read call stack and locals
 
-只有在轻量观察不够时，才升级为更重的源码改写或本地插桩。
+Upgrade to heavier source rewrite or local instrumentation only when light observation is not enough.

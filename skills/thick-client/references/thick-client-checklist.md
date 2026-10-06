@@ -1,9 +1,9 @@
-# 厚客户端清单
+# Thick-client checklist
 
-- [ ] 安装/卸载残留与权限
-- [ ] 自动启动与服务
-- [ ] 凭证存放（DPAPI/Keychain/明文）
-- [ ] 更新 URL 与签名校验
-- [ ] 证书固定与代理友好性
-- [ ] 隐藏功能/调试菜单
-- [ ] 本地端口绑定 0.0.0.0
+- [ ] Install/uninstall residue and permissions
+- [ ] Autostart and services
+- [ ] Credential storage (DPAPI/Keychain/plaintext)
+- [ ] Update URL and signature verification
+- [ ] Certificate pinning and proxy friendliness
+- [ ] Hidden features / debug menus
+- [ ] Local ports bound to 0.0.0.0

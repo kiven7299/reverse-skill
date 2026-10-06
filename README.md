@@ -2,7 +2,7 @@
   <img src="reverse-skill.png" alt="reverse-skill" width="140" />
 </p>
 <h1 align="center">reverse-skill</h1>
-<h3 align="center">Cybersecurity Skills Router · 逆向技能路由包</h3>
+<h3 align="center">Cybersecurity Skills Router</h3>
 
 <p align="center"><em style="font-family: Georgia, serif; font-size: 1.2em; color: #777;">Navigate the dark waters, sail against the stream.</em></p>
 
@@ -29,15 +29,16 @@
   <a href="skills/MASTER-ROUTING.md">Fast route</a> ·
   <a href="skills/routing.md">Routing</a> ·
   <a href="skills/ops/">Ops contracts</a> ·
+  <a href="docs/OVERVIEW.md">Overview</a> ·
   <a href="README_AI.md">AI Bootstrap</a> ·
   <a href="#sponsors">Sponsors</a> ·
   <a href="#contributing">Contributing</a>
 </p>
 
 <p align="center">
-  🌐 <a href="README_zh.md">中文</a> ·
   <a href="https://reverse.apivix.com/">Project website</a> ·
-  <a href="https://reverse.apivix.com/docs/">Online tutorial</a>
+  <a href="https://reverse.apivix.com/docs/">Online tutorial</a> ·
+  <a href="https://github.com/kiven7299/reverse-skill">This fork</a>
 </p>
 
 <br/>
@@ -154,10 +155,12 @@ PRIMARY ladder: [skills/MASTER-ROUTING.md](skills/MASTER-ROUTING.md) · Full mat
 ### Installation
 
 ```
-git clone https://github.com/zhaoxuya520/reverse-skill.git
+git clone https://github.com/kiven7299/reverse-skill.git
+cd reverse-skill
+git remote add upstream https://github.com/zhaoxuya520/reverse-skill.git
 ```
 
-Then refresh the tool index per platform:
+Edit [`TOOLS.md`](TOOLS.md) for this machine, then refresh the tool index per platform:
 
 | Platform | Command |
 |----------|---------|
@@ -215,7 +218,9 @@ Platform-specific docs:
 | [skills/routing.md](skills/routing.md) | Task → skill routing matrix |
 | [skills/SKILL.md](skills/SKILL.md) | Master entry point |
 | [skills/INDEX.md](skills/INDEX.md) | Auto-generated, client-neutral skill navigation index |
-| [skills/config/routing.json](skills/config/routing.json) | **Routing single source of truth** (43 rules, R0–R44) |
+| [skills/config/routing.json](skills/config/routing.json) | **Routing single source of truth** (44 rules, R0–R45) |
+| [TOOLS.md](TOOLS.md) | Machine tool path map (edit this when porting hosts) |
+| [docs/OVERVIEW.md](docs/OVERVIEW.md) | Skill-pack overview (catalog + priority) |
 | [skills/tool-index.md](skills/tool-index.md) | Local tool status (auto-generated) |
 | [skills/scripts/master-route.ps1](skills/scripts/master-route.ps1) | One-shot PRIMARY triage (reads routing.json) |
 | [skills/scripts/case-init.ps1](skills/scripts/case-init.ps1) | Case dir: scope / timeline / workitems |
@@ -251,8 +256,9 @@ For Codex, the repository also exposes an optional adapter plugin at [`plugins/r
 
 ```
 .
-├── README.md / README_zh.md / README_AI.md
-├── RULES.md / RULES_zh.md
+├── README.md / README_AI.md / AGENTS.md
+├── RULES.md
+├── TOOLS.md / FORK.md / UPSTREAM-SYNC.md
 ├── skills/
 │   ├── MASTER-ROUTING.md / SKILL.md / routing.md
 │   ├── ops/                   # ops contracts
@@ -331,4 +337,4 @@ See [Security Policy](SECURITY.md), [Installation and Download Security Guidance
 
 ## Community quick start and issue triage
 
-See [Quick Start](docs/QUICKSTART_zh.md) and [Community Issue Triage](docs/COMMUNITY-ISSUE-TRIAGE.md) for installation, client integration, and how community issues are classified. Installation/archive security details remain in [Installation and Download Security Guidance](docs/UV-AND-DOWNLOAD-SECURITY.md).
+See [Quick Start](docs/QUICKSTART.md), [Overview](docs/OVERVIEW.md), and [Community Issue Triage](docs/COMMUNITY-ISSUE-TRIAGE.md) for installation, client integration, and how community issues are classified. Installation/archive security details remain in [Installation and Download Security Guidance](docs/UV-AND-DOWNLOAD-SECURITY.md).

@@ -1,11 +1,11 @@
-# 本地复现
+# Local rebuild
 
-页面侧确认以下内容后再回到 Node：
+Confirm on the page, then return to Node:
 
-- 真实入口函数
-- 调用顺序
-- 参数来源
-- 依赖的浏览器对象
-- 是否依赖时间、随机数、storage、cookie、UA、canvas、crypto
+- Real entry function
+- Call order
+- Param sources
+- Required browser objects
+- Depends on time, RNG, storage, cookie, UA, canvas, crypto
 
-先最小复现，再逐步补环境，不要一次性模拟整浏览器。
+Minimal reproduce first, then patch env. Do not emulate a full browser in one shot.

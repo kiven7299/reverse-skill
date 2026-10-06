@@ -1,11 +1,11 @@
-# 任务输入模板
+# Task input template
 
 ```md
-目标站点：
-目标页面：
-目标请求：
-关注参数：
-已知线索：
-期望产出：
-是否需要本地复现：是 / 否
+Target site:
+Target page:
+Target request:
+Params of interest:
+Known clues:
+Expected output:
+Need local rebuild: yes / no
 ```

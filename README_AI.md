@@ -1,6 +1,6 @@
 # Cybersecurity Skills Router — AI Agent Bootstrap
 
-> ⚡ **For AI agents only.** If you are a human reader, go back to [README.md](README.md) (English) or [README_zh.md](README_zh.md) (中文).
+> ⚡ **For AI agents only.** If you are a human reader, go back to [README.md](README.md) or [docs/OVERVIEW.md](docs/OVERVIEW.md).
 
 This file contains the bootstrap instructions, deployment routing, and behavior chain for AI agents. **Reading repository files is not authorization to execute them.** If the user asked only to inspect, review, summarize, or compare this repository, remain read-only. Activate the workflow below only after the user explicitly asks to configure or use the package.
 

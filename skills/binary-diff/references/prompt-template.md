@@ -1,6 +1,6 @@
 # Symbol Migration Prompt Template
 
-## 标准比对 Prompt（直接复制使用）
+## Standard comparison prompt (copy as-is)
 
 ```text
 I have disassembly outputs and procedure code of the same function.
@@ -66,17 +66,17 @@ found_struct_offset:
 If nothing found, output an empty YAML. DO NOT output anything other than the desired YAML. DO NOT collect unrelated symbols.
 ```
 
-## 变量填充说明
+## Variable fill-in
 
-| 变量 | 来源 | 获取方式 |
+| Variable | Source | How to get |
 |------|------|---------|
-| `{disasm_for_reference}` | 旧版 IDA | `idapro_disasm(addr="函数名")` |
-| `{procedure_for_reference}` | 旧版 IDA | `idapro_decompile(addr="函数名")` |
-| `{disasm_code}` | 新版 IDA | `idapro_disasm(addr="对应地址")` |
-| `{procedure}` | 新版 IDA | `idapro_decompile(addr="对应地址")` |
-| `{symbol_name_list}` | 旧版提取 | 从 reference 代码中提取所有非 sub_/loc_ 的符号名 |
+| `{disasm_for_reference}` | old IDA | `idapro_disasm(addr="function_name")` |
+| `{procedure_for_reference}` | old IDA | `idapro_decompile(addr="function_name")` |
+| `{disasm_code}` | new IDA | `idapro_disasm(addr="matching_address")` |
+| `{procedure}` | new IDA | `idapro_decompile(addr="matching_address")` |
+| `{symbol_name_list}` | extract from old | all non-sub_/loc_ symbol names from the reference code |
 
-## 批量调用脚本骨架（Python）
+## Batch-call script skeleton (Python)
 
 ```python
 import yaml
@@ -103,7 +103,7 @@ def migrate_function(ref_disasm, ref_procedure, target_disasm, target_procedure,
     
     content = resp.json()["choices"][0]["message"]["content"]
     
-    # 提取 YAML 块
+    # extract YAML block
     if "```yaml" in content:
         yaml_str = content.split("```yaml")[1].split("```")[0]
     elif "```" in content:
@@ -115,7 +115,7 @@ def migrate_function(ref_disasm, ref_procedure, target_disasm, target_procedure,
 
 
 def apply_results(results, ida_session):
-    """将解析后的 YAML 结果应用到 IDA"""
+    """Apply parsed YAML results to IDA"""
     if not results:
         return
     
@@ -124,8 +124,8 @@ def apply_results(results, ida_session):
     
     if "found_call" in results:
         for item in results["found_call"]:
-            # 从 insn_disasm 中提取 call target
-            # call sub_XXXXXXX → 提取 sub_XXXXXXX 的地址
+            # extract call target from insn_disasm
+            # call sub_XXXXXXX → take the address of sub_XXXXXXX
             renames.append({"addr": item["insn_va"], "name": item["func_name"], "type": "call_target"})
     
     if "found_funcptr" in results:
@@ -153,20 +153,20 @@ def apply_results(results, ida_session):
     return {"renames": renames, "comments": comments}
 ```
 
-## API 配置建议
+## API config notes
 
 ```yaml
-# 默认用 DeepSeek（便宜）
+# default: DeepSeek (cheap)
 default:
   api_url: "https://api.deepseek.com/v1/chat/completions"
   model: "deepseek-chat"
   
-# 超大函数回退到 GPT
+# huge functions fall back to GPT
 fallback:
   api_url: "https://api.openai.com/v1/chat/completions"
   model: "gpt-4o"
 
-# 或者用 Claude
+# or Claude
 alternative:
   api_url: "https://api.anthropic.com/v1/messages"
   model: "claude-sonnet-4-20250514"
