@@ -9,8 +9,9 @@ Generic steps. No machine-absolute paths. Local readiness report lives at repo-r
 | IDA install dir | env `IDADIR` (dir contains `ida.exe` or `ida.dll`) |
 | HTTP MCP | `http://127.0.0.1:13337/mcp` |
 | Client server name | keep only **`idapro`** (do not also register `ida-pro-mcp`) |
-| Start | `scripts/start.ps1` (`--unsafe`, no `?ext=dbg`) |
-| Open DB | large files prefer `scripts/open.ps1`; do not call `idb_open` directly via some clients |
+| Start (this machine) | `scripts/start-gui.ps1 -Path "<binary>"` — no headless idalib license; `-A` skips the load dialog |
+| Start (headless) | `scripts/start.ps1` only after an idalib license is confirmed |
+| Open DB | GUI: file is opened by `start-gui.ps1`; headless large files use `scripts/open.ps1` |
 
 Two MCP names pointing at the same 13337 register tools twice and race the idalib worker for the port.
 

@@ -5,7 +5,7 @@ description: |
 
   Ensure to use this skill when the user wants to analyze any binary file, regardless of whether they explicitly mention "IDA" or "reverse engineering". This includes requests like "look at this exe", "analyze this dll", "help me crack this", "find the password", "how does this software register", etc.
 
-  Use the bundled scripts (scripts/start.ps1, scripts/open.ps1) for deterministic server management and file opening — do NOT write ad-hoc PowerShell commands for these operations.
+  Use the bundled scripts (scripts/start.ps1, scripts/start-gui.ps1, scripts/open.ps1) for deterministic server management and file opening — do NOT write ad-hoc PowerShell commands for these operations.
 ---
 
 # IDA Pro reverse analysis skill
@@ -81,10 +81,12 @@ description: |
 
 | Step | What | With |
 |------|--------|--------|
-| 1 | Ensure the HTTP server is running | `scripts/start.ps1` (no args) |
-| 2 | Open the target binary | `scripts/open.ps1 -Path "xxx.exe"` |
+| 1 | Pick a launch path | This machine: Path B. Headless only if `idalib` license is known good |
+| 2 | Open the target binary | Path B: `scripts/start-gui.ps1 -Path`. Path A: `scripts/open.ps1 -Path` |
 | 3 | Use MCP analysis tools | Call `idapro_*` / HTTP tools directly (~65, version-dependent) |
 | 4 | After analysis | Tools stay available |
+
+**This machine has no headless idalib license.** Do not start with `scripts/start.ps1`. `start.ps1` never opens the IDA window. It starts a hidden supervisor and exits `ERR:timeout` here. First command is `scripts/start-gui.ps1 -Path "<binary>"`. `-A` is already in that script, so IDA loads the file without an OK dialog. Wait until `http://127.0.0.1:13337/mcp` answers `tools/list`, then use MCP tools. Do not call `open.ps1` after a GUI launch.
 
 ## Script resources
 
@@ -248,19 +250,19 @@ ERR:open_timeout_600s
 
 ### Step 1: Start the server
 
-**Path A — Headless idalib (needs a valid license)**
-```
-powershell -File "scripts/start.ps1"
-```
-`OK:<tool-count>` (currently ~65) means ready.
+**This machine: Path B only.** Do not run `start.ps1` first.
 
-**Path B — GUI + plugin (idalib license failed or interactive analysis needed)**
+**Path B — GUI + plugin (required here; also use when idalib license fails)**
 ```
 powershell -File "scripts/start-gui.ps1" -Path "C:\target.exe"
 ```
-Or double-click portable `Launch-IDA-Pro.cmd` and open the sample in IDA.
+`-A` is passed automatically. Do not ask the user to click OK. Success is `OK:gui_started` plus `tools/list` on `http://127.0.0.1:13337/mcp`. Output window shows `[MCP] ... port=13337`.
 
-After the Output window shows `[MCP] ... port=13337`, MCP tools are usable.
+**Path A — Headless idalib (only if a valid idalib license is already confirmed)**
+```
+powershell -File "scripts/start.ps1"
+```
+`OK:<tool-count>` (currently ~65) means ready. `ERR:timeout` or `ERR:idalib_license` means stop and use Path B. Do not retry `start.ps1`.
 
 Generic attach steps: `LOCAL-SETUP.md`.
 

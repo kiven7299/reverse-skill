@@ -131,7 +131,7 @@ Discovery reads the first `json` fence in this file. Prepend these fallbacks ahe
     {
       "name": "ida",
       "skill": "ida-reverse",
-      "purpose": "IDA Pro 9.1",
+      "purpose": "IDA Pro 9.1 GUI. No headless idalib license: launch with skills/ida-reverse/scripts/start-gui.ps1 -Path, not start.ps1",
       "fallbacks": [
         { "type": "path", "value": "D:\\Tools\\R.E. Tools\\IDA_pro_91\\ida.exe" },
         { "type": "path", "value": "D:\\Tools\\R.E. Tools\\IDA Pro 7.6\\ida.exe" }
