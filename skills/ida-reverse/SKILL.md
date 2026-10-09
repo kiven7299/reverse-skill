@@ -5,7 +5,7 @@ description: |
 
   Ensure to use this skill when the user wants to analyze any binary file, regardless of whether they explicitly mention "IDA" or "reverse engineering". This includes requests like "look at this exe", "analyze this dll", "help me crack this", "find the password", "how does this software register", etc.
 
-  Use the bundled scripts (scripts/start.ps1, scripts/start-gui.ps1, scripts/open.ps1) for deterministic server management and file opening — do NOT write ad-hoc PowerShell commands for these operations.
+  On this machine there is no headless idalib license. Open the binary with scripts/start-gui.ps1 -Path only. Do not call scripts/start.ps1 or scripts/open.ps1. Do not write ad-hoc PowerShell to launch IDA.
 ---
 
 # IDA Pro reverse analysis skill
@@ -266,17 +266,15 @@ powershell -File "scripts/start.ps1"
 
 Generic attach steps: `LOCAL-SETUP.md`.
 
-### Step 2: Open the file
+### Step 2: Confirm the GUI session
 
-Headless:
+Path B already opened the file. Do not call `open.ps1`. Probe `http://127.0.0.1:13337/mcp` with `tools/list`. A tool count above 0 means the plugin loaded itself. No Edit → Plugins click is required.
+
+Headless Path A only, after a confirmed idalib license:
 ```
 powershell -File "scripts/open.ps1" -Path "C:\target.exe" -TimeoutSeconds 600
 ```
-`OK:filename:session_id` means success (trailing `(temp copy)` means auto-degrade to a temp copy).
-
-If `ERR:idalib_license:...` appears, switch to path B (GUI mode); do not keep retrying open.ps1.
-
-GUI mode: Open the sample in IDA; open.ps1 is not needed.
+`OK:filename:session_id` means success. `ERR:idalib_license` means stop and use Path B.
 
 ### Step 3: Global overview (includes import-table hard gate)
 ```

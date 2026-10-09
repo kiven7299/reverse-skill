@@ -99,7 +99,7 @@ if ($UsePortableLauncher -or (Test-Path (Join-Path $portableRoot 'Launch-IDA-Pro
             Start-Process -FilePath $launcher -WorkingDirectory $portableRoot
         }
         Write-Output 'OK:gui_started'
-        Write-Output 'HINT: Open a binary in IDA, confirm Output shows [MCP] port=13337, then use idapro MCP tools.'
+        Write-Output 'HINT: File is loading with -A. MCP plugin autostarts. Probe http://127.0.0.1:13337/mcp tools/list.'
         exit 0
     }
 }
@@ -117,4 +117,4 @@ if (-not [string]::IsNullOrWhiteSpace($Path)) {
 }
 
 Write-Output 'OK:gui_started'
-Write-Output 'HINT: Open a binary in IDA, confirm Output shows [MCP] port=13337, then use idapro MCP tools.'
+Write-Output 'HINT: File is loading with -A. MCP plugin autostarts. Probe http://127.0.0.1:13337/mcp tools/list.'

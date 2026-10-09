@@ -46,8 +46,7 @@ An MCP entry with `type: http` does not spawn the process. If 13337 is not liste
 Logs: `%LOCALAPPDATA%\reverse-skill\ida-mcp\supervisor.log` and `watchdog.log`.
 
 ```powershell
-powershell -NoProfile -ExecutionPolicy Bypass -File "skills\ida-reverse\scripts\start.ps1"
-powershell -NoProfile -ExecutionPolicy Bypass -File "skills\ida-reverse\scripts\open.ps1" -Path "C:\path\to\target.exe" -TimeoutSeconds 600
+powershell -NoProfile -ExecutionPolicy Bypass -File "skills\ida-reverse\scripts\start-gui.ps1" -Path "C:\path\to\target.exe"
 powershell -NoProfile -ExecutionPolicy Bypass -File "skills\ida-reverse\scripts\install-autostart.ps1"
 ```
 
