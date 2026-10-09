@@ -55,6 +55,7 @@ If routing cannot hit, research the method online and propose a new skill. MUST 
 | **API security** | `api-security/` | REST/GraphQL/WebSocket: BOLA/IDOR, JWT/OAuth, 10-phase method |
 | **Supply-chain security** | `supply-chain-security/` | SBOM/SCA/CI-CD: dep scan, container security, build integrity, vuln reachability |
 | **Mobile reverse** | `mobile-reverse/` | Android + iOS: Frida/Objection, SSL pinning/root/jailbreak bypass, OWASP MASTG |
+| **Native shield instrumentation** | `native-instrumentation/` | bShield/Xq dynamic signing; SSL pinning bypass on Conscrypt; signer reuse (harness + live in-process ptrace); no-Frida native C path |
 | **Malware analysis** | `malware-analysis/` | Six-stage sample analysis, YARA/Sigma, anti-analysis, sandbox orchestration |
 | **DSL VM reverse** | `reverse-engineering/dsl-vm-reverse/` | JS custom ISA VM (IIFE + switch-case opcode); risk-control / captcha engines |
 | **Ops contracts** | `ops/` | Scope / evidence chain / roles / timeline / identity / skill supply-chain |

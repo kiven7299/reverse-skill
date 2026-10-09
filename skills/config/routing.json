@@ -318,6 +318,13 @@
         { "must": "binary.?ninja|binaryninja|\\bbinja\\b|binary[_-]ninja[_-]mcp|hlil|mlil", "note": "Binary Ninja GUI, IL, Python API, MCP, or localhost HTTP integration" }
       ]
     },
+    "R46": {
+      "label": "Native shield instrumentation (no-Frida)",
+      "skill": "native-instrumentation/SKILL.md",
+      "keywords": [
+        { "must": "b.?shield|shield.?bypass|shield.?逆向|盾.?绕过|xqsig|xqcode|xqplatform|native.?instrumentation|no.?frida|无.?frida|signer.?reuse|签名.?复用|ptrace.?dlopen|远程.?dlopen|in.?process.?inject|live.?signer|conscrypt|libjavacrypto|libssl|ssl.?pinning.?bypass|cert.?pinning.?bypass|证书.?校验.?绕过|checkServerTrusted|SSL_set_custom_verify|frida.?artifact|frida.?残留|frida-server|device.?security.?reject|设备.?安全.?拦截|artifact.?scanner", "note": "Android shield/bShield/Xq 动态签名与无-Frida native 插桩归此路由" }
+      ]
+    },
     "R0": {
       "label": "General reverse-engineering",
       "skill": "reverse-engineering/SKILL.md",
@@ -332,6 +339,6 @@
     "R4", "R1", "R2", "R3", "R30", "R31", "R33", "R5", "R9", "R21",
     "R22", "R45", "R6", "R7", "R8", "R34", "R28", "R17", "R16", "R18", "R24",
     "R37", "R23", "R35", "R25", "R44", "R36", "R29", "R38", "R32", "R26", "R27",
-    "R10", "R11", "R12", "R13", "R14", "R15", "R19", "R40", "R20", "R39", "R41", "R0"
+    "R10", "R11", "R12", "R13", "R14", "R15", "R19", "R40", "R20", "R39", "R41", "R46", "R0"
   ]
 }

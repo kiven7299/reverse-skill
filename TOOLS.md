@@ -307,7 +307,7 @@ Prefer the JSON `name` when a skill asks for a catalog tool. Extra local tools a
 | Name | Path | Notes |
 |---|---|---|
 | nmap | `D:\Tools\Nmap\nmap.exe` | |
-| nuclei | `D:\Tools\nuclei_2.7.3\nuclei.exe` | 2.7.3 |
+| nuclei | `D:\Tools\nuclei_2.7.3\nuclei.exe` | Folder name 2.7.3; binary is Nuclei v3.1.1 |
 | amass | `D:\Tools\Amass\amass.exe` | |
 | dirsearch | `D:\Tools\dirsearch\dirsearch.py` | |
 | jwt_tool | `D:\Tools\jwt_tool\jwt_tool.py` | |

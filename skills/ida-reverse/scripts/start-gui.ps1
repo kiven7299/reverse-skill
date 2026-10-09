@@ -47,6 +47,20 @@ if ([string]::IsNullOrWhiteSpace($IdaDir)) {
                 (Join-Path $env:USERPROFILE 'Desktop\IDA Pro 9.4\App\IDA Pro')
             )
             $IdaDir = $candidates | Where-Object { Test-IdaInstallDir $_ } | Select-Object -First 1
+            if (-not $IdaDir) {
+                $fromReg = @(
+                    'HKLM:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*',
+                    'HKLM:\SOFTWARE\WOW6432Node\Microsoft\Windows\CurrentVersion\Uninstall\*',
+                    'HKCU:\SOFTWARE\Microsoft\Windows\CurrentVersion\Uninstall\*'
+                ) | ForEach-Object { Get-ItemProperty $_ -ErrorAction SilentlyContinue } |
+                    Where-Object {
+                        $_.DisplayName -match 'IDA' -and
+                        -not [string]::IsNullOrWhiteSpace($_.InstallLocation) -and
+                        (Test-IdaInstallDir $_.InstallLocation)
+                    } |
+                    Select-Object -ExpandProperty InstallLocation -First 1
+                if ($fromReg) { $IdaDir = $fromReg }
+            }
         }
     }
 }
@@ -79,7 +93,8 @@ if ($UsePortableLauncher -or (Test-Path (Join-Path $portableRoot 'Launch-IDA-Pro
             }
             # Portable launcher starts IDA; then user/file can be passed to ida.exe directly instead
             $target = [System.IO.Path]::GetFullPath($Path)
-            Start-Process -FilePath (Join-Path $env:IDADIR 'ida.exe') -ArgumentList @('"' + $target + '"') -WorkingDirectory $env:IDADIR
+            # -A skips the load dialog so IDA does not wait for OK
+            Start-Process -FilePath (Join-Path $env:IDADIR 'ida.exe') -ArgumentList @('-A', $target) -WorkingDirectory $env:IDADIR
         } else {
             Start-Process -FilePath $launcher -WorkingDirectory $portableRoot
         }
@@ -96,7 +111,7 @@ if (-not [string]::IsNullOrWhiteSpace($Path)) {
         exit 1
     }
     $target = [System.IO.Path]::GetFullPath($Path)
-    Start-Process -FilePath $idaExe -ArgumentList @('"' + $target + '"') -WorkingDirectory $env:IDADIR
+    Start-Process -FilePath $idaExe -ArgumentList @('-A', $target) -WorkingDirectory $env:IDADIR
 } else {
     Start-Process -FilePath $idaExe -WorkingDirectory $env:IDADIR
 }
