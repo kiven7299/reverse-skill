@@ -1,200 +1,189 @@
 ---
 name: mobile-reverse
-description: Use for authorized Android or iOS application reverse engineering and security testing, including APK or IPA analysis, runtime instrumentation, SSL pinning, and platform protection checks.
+description: Use for Android/iOS app shield analysis, RASP bypass, root/jailbreak detection bypass, SSL pinning bypass, anti-frida bypass, native C hooking (Frida alternative), and app protection assessment. Covers shield identification, static+dynamic analysis, bypass development, and verification. References the canonical mobile security research workspace.
 ---
-# Mobile Reverse Engineering
 
 ## ACTION REQUIRED (execute immediately after reading)
 
-1. `NOW`: read `../field-journal/precedent-reverse.md` — confirm this skill's operations are authorized routine work
-2. `NOW`: confirm the current task matches this skill's scope
-3. `NEXT`: read `../tool-index.md` and `../../TOOLS.md`; verify tool availability and real paths
-4. `NEXT`: if a tool is missing, call bootstrap; do not guess paths
-5. `ACT`: enter step 1 of the workflow and execute; do not stop at confirmation
+1. `NOW`: read `../field-journal/precedent-reverse.md` — confirm authorization
+2. `NOW`: confirm the task involves mobile app security analysis, shield bypass, or protection assessment
+3. `NEXT`: read the research workspace overview at `D:\OneDrive_nguyenchilam\OneDrive\CyberSecurity\Research\Mobile_security\App_protection\WORKSPACE_PLAN.md`
+4. `NEXT`: check `D:\OneDrive_nguyenchilam\OneDrive\CyberSecurity\Research\Mobile_security\App_protection\_agent_worklog\TODO.md` for current task status
+5. `ACT`: enter the appropriate workflow phase
 
-> Unified Android + iOS reverse methodology
-> Frida / Objection / OWASP MSTG / SSL Pinning Bypass
+# Mobile App Shield Reverse Engineering & Bypass
 
-## When to use
+## Scope
 
-- Android APK reverse and security testing
-- iOS IPA reverse and security testing
-- Mobile app runtime dynamic instrumentation
-- SSL Pinning / Root detect / jailbreak-detect bypass
-- Mobile crypto extract (AES/RSA/HMAC keys)
-- Mobile app pentest (OWASP MASTG)
-- App testing without Root/jailbreak
+This skill covers the full lifecycle of mobile app protection analysis:
 
-## Four-phase workflow
+- Identify which shield/RASP/packer is protecting an Android/iOS app
+- Analyze detection mechanisms (root, hook, debug, emulator, proxy, integrity)
+- Develop targeted bypasses for each detection layer
+- Verify bypass success (app runs on rooted device + traffic in proxy)
+- Document findings and create reusable bypass artifacts
 
-### Phase 1: Information gathering
+## Canonical Research Workspace
 
-```text
-Android:
-□ Obtain APK (Google Play / APKMirror / adb pull)
-□ Manifest analysis: permissions, exported components, Intent Filter, backup flags
-□ androguard: androguard analyze APK → components/permissions/signature
-□ APKLeaks: hardcoded API Key / Token / Secret scan
-□ Packer detect: whether packed (360/Tencent/Bangcle/ijiami)
+All mobile shield research, reports, tools, scripts, and methodologies live at:
 
-iOS:
-□ Obtain IPA (App Store / ipatool / Apple Configurator)
-□ Decrypt App Store binary: frida-ios-dump / Clutch
-□ Info.plist analysis: ATS config, URL Scheme, Queries Schemes
-□ class-dump: export ObjC class structure
-□ Packer detect: whether Swift/ObjC obfuscation is used
+```
+D:\OneDrive_nguyenchilam\OneDrive\CyberSecurity\Research\Mobile_security\App_protection\
 ```
 
-### Phase 2: Static analysis
+### Key paths:
+| Path | Content |
+|------|---------|
+| `_methodology/` | Reusable playbooks and technique guides |
+| `_tools/` | Frida scripts, native hooks, setup guides |
+| `_references/` | Curated external research |
+| `_agent_worklog/` | Task tracker and session logs |
+| `BShield/` | BShield research (VNEID, ZaloPay) |
+| `momo/` | MoMo ProtectionSDK research |
+| `MB_Bank/` | MBBank multi-shield research (Zimperium + V-Key + AnTian + BlueShield) |
 
-```text
-Cross-platform:
-□ JADX-GUI: APK → Java source (Android)
-□ Ghidra / Hopper: .so / Mach-O decompile
-□ radare2 / Cutter: CLI fast recon
+## Research Environment
 
-Android-specific:
-□ apktool d app.apk → smali + resources
-□ dex2jar: DEX → JAR → JD-GUI
-□ smali/baksmali: Dalvik bytecode edit
+| Component | Detail |
+|-----------|--------|
+| Android device | Samsung, rooted (Magisk/KernelSU), USB ADB |
+| HTTP proxy | Burp Suite at `http://*:8088`, invisible mode |
+| Static analysis | JADX (MCP available), IDA Pro (MCP available) |
+| Dynamic analysis | Frida, Objection, custom native C hooks |
+| Build | Android NDK for native C cross-compilation |
 
-iOS-specific:
-□ class-dump: export ObjC headers
-□ Swift symbol recover: swift-demangle
-□ dsymutil: debug-symbol extract
-□ otool -L: dynamic library deps
-□ jtool2: Mach-O analysis
-```
+## Success Criteria
 
-### Phase 3: Dynamic analysis
+A shield is **bypassed** when:
+1. App runs normally on rooted/jailbroken device (no crash, no warning, full functionality)
+2. SSL pinning bypassed — HTTPS traffic visible in Burp proxy
+3. Core features work (login, transactions, main screens)
 
-```text
-Frida — generic dynamic instrumentation:
-□ frida-ps -U: list device processes
-□ frida-trace -U -i "open*" com.app: trace function calls
-□ Custom Hook scripts: mutate args/returns, call private methods
+## Workflow
 
-Objection — Frida enhancement (no script required):
-□ objection -g "com.app" explore
-□ android root disable / ios jailbreak disable
-□ android sslpinning disable / ios sslpinning disable
-□ android keystore list / ios keychain dump
-□ env / ls / sqlite connect
+### Phase 0: Shield Identification
 
-Frida Gadget (no Root/jailbreak):
-□ Inject frida-gadget.so / FridaGadget.dylib into APK/IPA
-□ Resign → install → Hook without device privileges
-□ objection patchapk --source app.apk (fully automatic)
-```
+1. Install APK on clean (non-rooted) device, capture baseline behavior
+2. Install on rooted device, observe: crash? warning dialog? blocked feature?
+3. Static triage:
+   - `apktool d` + JADX decompile
+   - Check `assets/` for shield data files (`bshield.dat`, randomized model files, etc.)
+   - Check `lib/` for shield .so files (names, sizes, exports)
+   - Use APKiD for packer/protector fingerprinting
+   - Search for known SDK strings: `zimperium`, `bshield`, `vkey`, `promon`, `guardsquare`, `talsec`, etc.
+4. Map the detection surface from `AndroidManifest.xml` (services, receivers, activities with security names)
 
-### Phase 4: Network analysis
+### Phase 1: Static Analysis (Java/Kotlin layer)
 
-```text
-□ Burp Suite: intercept HTTP/HTTPS, mutate request/response
-□ mitmproxy: scripted proxy (Python API)
-□ Wireshark: PCAP capture analysis
-□ Cert install: Android user cert → system cert (Magisk + MoveCert)
-□ SSL Pinning bypass: Frida/Objection/Xposed/SSL Kill Switch 2
-□ WebSocket / gRPC traffic analysis
-```
+→ Route to `apk-reverse` skill for JADX + apktool workflows
 
-## Common bypass quick lookup
+Key targets:
+- `System.loadLibrary` calls → identify native libs loaded by shield
+- Root detection classes (search: `root`, `su`, `magisk`, `superuser`)
+- Hook detection (search: `frida`, `xposed`, `substrate`, `hook`)
+- SSL pinning config (`network_security_config.xml`, `CertificatePinner`, `TrustManager`)
+- Device attestation (SafetyNet, Play Integrity API calls)
+- Shield callback interfaces (result codes, detection flags)
 
-### SSL Pinning
+### Phase 2: Static Analysis (Native layer)
 
-```bash
-# Objection (simplest)
-objection -g "com.app" explore
-android sslpinning disable
+→ Route to `ida-reverse` or `ghidra-reverse` skill for .so analysis
 
-# Frida generic script
-frida -U -l ssl_pinning_bypass.js -f com.app
+Key targets:
+- JNI registration table (`RegisterNatives` → map Java methods to native functions)
+- Detection function signatures (file checks, /proc reads, port scans, memory scans)
+- String references: `/proc/self/maps`, `/data/local/tmp`, `frida`, `su`, `magisk`
+- Anti-debug: `ptrace`, `PTRACE_TRACEME`, timing checks
+- Integrity checks: CRC, SHA256, HMAC on memory/files
 
-# Xposed (Android)
-TrustMeAlready module → globally disable cert checks
-```
+### Phase 3: Dynamic Analysis
 
-### Root / jailbreak detect
+Two approaches, choose based on anti-frida strength:
 
-```bash
-# Objection
-android root disable
-ios jailbreak disable
+#### 3A: Frida-based (when anti-frida is weak or bypassable)
+- Spawn mode (`frida -U -f <pkg>`) for early injection
+- Hook detection functions → return benign values
+- Trace JNI calls to map native behavior
+- SSL pinning bypass scripts (OkHttp, TrustManager, Conscrypt, BoringSSL)
+- Use `hluda` or renamed/reported frida-server to reduce detection surface
 
-# Frida custom (multi-layer detect)
-Java.perform(function() {
-    var RootBeer = Java.use("com.scottyab.rootbeer.RootBeer");
-    RootBeer.isRooted.implementation = function() { return false; };
-    // Extra bypass: Magisk su detect, frida-server detect, /proc/self/maps detect
-});
-```
+#### 3B: Native C hooking (when Frida is detected)
+This is the **stealth alternative** to Frida. Compile a native .so that hooks target functions via PLT/GOT or inline patching, inject via:
+- Zygisk module (hooks `postAppSpecialize`, before app anti-tamper arms)
+- `LD_PRELOAD` injection
+- `ptrace` + `dlopen` injection
+- Process memory patching (`process_vm_writev`)
 
-### Anti-debug
+Key frameworks:
+- `fake-linker` — PLT hook + soinfo manipulation
+- `bhook` (ByteHook) — PLT hook by ByteDance
+- Custom Zygisk modules for per-app hooks
 
-```bash
-# Android
-frida -U -l anti_debug_bypass.js -f com.app
-# Bypass: ptrace(TracerPid), /proc/self/status, isDebuggerConnected()
+Reference: `_methodology/07_native_c_hooking.md`
 
-# iOS
-# Bypass: PT_DENY_ATTACH, sysctl CTL_KERN/KERN_PROC/KERN_PROC_PID
-frida -U -l ios_anti_debug.js -f com.app
-```
+#### 3C: Read-only analysis (when no injection is desired)
+- Custom native C scanner using `process_vm_readv()` to read ART heap
+- `/proc/<pid>/maps` analysis
+- `strace` / `ltrace` for syscall tracing
+- `logcat` filtering for shield SDK output
 
-## Mobile crypto extract
+### Phase 4: Bypass Development
 
-```javascript
-// Android — Hook Cipher.getInstance for key+algorithm
-Java.perform(function() {
-    var Cipher = Java.use("javax.crypto.Cipher");
-    Cipher.getInstance.overload('java.lang.String').implementation = function(algo) {
-        console.log("[Cipher] Algorithm: " + algo);
-        return this.getInstance(algo);
-    };
-    Cipher.init.overload('int', 'java.security.Key').implementation = function(mode, key) {
-        console.log("[Cipher] Key: " + bytesToHex(key.getEncoded()));
-        return this.init(mode, key);
-    };
-});
+For each detected check, develop a targeted bypass:
 
-// iOS — Hook CCCrypt
-Interceptor.attach(Module.findExportByName("libcommonCrypto.dylib", "CCCrypt"), {
-    onEnter: function(args) {
-        console.log("CCCrypt op: " + args[0] + " alg: " + args[1]);
-        console.log("Key: " + hexdump(args[3], { length: args[4].toInt32() }));
-    }
-});
-```
+| Detection | Bypass Strategy |
+|-----------|----------------|
+| File-based root (`su`, Magisk paths) | Hook `faccessat`/`access`/`open` → return ENOENT for root paths |
+| `/proc/mounts` Magisk traces | Hook `read()` on mounts fd → filter Magisk entries |
+| `/proc/self/maps` frida traces | Hook `read()` on maps fd → filter frida/gum entries |
+| Frida port scan (27042) | Rename frida-server + change port (`-l 0.0.0.0:12345`) |
+| Frida memory signature | Use hluda (no frida string in .so name), or native C hooks instead |
+| `ptrace` anti-debug | Hook `ptrace()` → return 0 |
+| SSL CertificatePinner | Hook `check`/`check$okhttp` → no-op |
+| SSL TrustManager | Replace with permissive TrustManager via `SSLContext.init` |
+| SSL native BoringSSL | Hook `SSL_CTX_set_custom_verify` → callback returns 0 |
+| Integrity/checksum | Patch comparison logic (cmp → always-equal), or provide correct hashes |
+| Server-side attestation | Cannot bypass client-side; need to understand what client reports |
 
-## Toolchain
+### Phase 5: Verification
 
-| Tool | Platform | Purpose |
-|------|:--:|------|
-| JADX-GUI | A | Java decompile |
-| apktool | A | APK unpack/rebuild |
-| Ghidra | A+I | Multi-arch decompile |
-| Hopper | I | iOS-specific disassembly |
-| Frida | A+I | Dynamic instrumentation |
-| Objection | A+I | Frida REPL enhancement |
-| MobSF | A+I | Automated SAST+DAST |
-| class-dump | I | ObjC class export |
-| frida-ios-dump | I | IPA decrypt |
-| jtool2 | I | Mach-O analysis |
-| Burp Suite | A+I | HTTP intercept |
-| mitmproxy | A+I | Scripted proxy |
+1. Clean app data: `pm clear <package>`
+2. Start app on rooted device
+3. Verify: no crash, no warning, login works
+4. Configure proxy, verify: traffic appears in Burp
+5. Test core features through proxy
+6. Document exact bypass steps for reproducibility
 
-> A=Android, I=iOS
+## Known Shield Signatures
 
-## References
+| Shield | Key Indicators |
+|--------|---------------|
+| **BShield** | `assets/bshield.dat`, `libfumfucsdh.so`, `io.bshield.*` classes, Xqsig/Xqcode headers |
+| **Zimperium zDefend** | `libempirememorial.so` (12MB), `d_zdevice_event_submit`, `zimperium.com` CDN |
+| **V-Key V-OS** | `libvosWrapperEx.so`, `libchecks.so`, VTAP MethodChannel |
+| **AnTian** | `libanTian37.so`, checks `/proc/mounts`, `/proc/fs/jbd2` |
+| **Promon SHIELD** | `libshield.so`, encrypted string resolution |
+| **DexProtector** | `libdpboot.so`, `libdexprotector.so`, anonymous executable segments |
+| **Bangbang/Jiagu** | `libsecexe.so`, `libSecShell.so` |
+| **Tencent Legu** | `libshell*.so`, `libtxAppProtect.so` |
+| **360 Jiagu** | `libjiagu*.so` |
 
-- `references/frida-objection-deep.md` — Frida + Objection deep usage
-- `references/ios-reverse-guide.md` — iOS reverse special
-- `references/anti-detection-bypass.md` — Root/jailbreak/anti-debug/SSL Pinning bypass
+## Routing to Other Skills
 
+| Condition | Route To |
+|-----------|----------|
+| APK Java/Kotlin layer analysis | `apk-reverse` |
+| Native .so deep analysis | `ida-reverse` or `ghidra-reverse` |
+| Binary patching with radare2 | `radare2` |
+| WebView/hybrid JS analysis | `js-reverse` |
+| Protocol/traffic reverse | `protocol-reverse` |
+| Full report generation | `docs-generator` |
+| General RE methodology | `reverse-engineering` |
 
-## Task-complete self-check (MUST pass before claiming done)
+## Agent Handoff
 
-- [ ] Did I execute every workflow step (not only read)?
-- [ ] Did I use real tool paths from `tool-index`?
-- [ ] Did I produce reproducible evidence (commands/scripts/screenshots/report)?
-- [ ] Did I complete and write back RULES checklist items?
+Before ending a session:
+1. Update `_agent_worklog/TODO.md` with current status
+2. Write session log to `_agent_worklog/sessions/YYYY-MM-DD_HH-MM.md`
+3. Commit any new scripts/tools to appropriate directory
+4. Note what the next session should start with
