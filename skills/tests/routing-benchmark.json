@@ -895,6 +895,11 @@
       "hint": "Twitter marketing sentiment for our product",
       "expect": "R0",
       "quick": false
+    },
+    {
+      "hint": "Xqsig Xqcode signer reuse in app process without injecting shield bypass native instrumentation",
+      "expect": "R46",
+      "quick": true
     }
   ]
 }

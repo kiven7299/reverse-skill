@@ -124,6 +124,7 @@ python3 skills/case-review/scripts/review_case.py work/<case> --verify-hashes --
 | **R20** | Report / writeup | `docs-generator/` |
 | **R39** | Diagrams / Mermaid / Graphviz / PlantUML / architecture | `diagram-generator/` |
 | **R41** | CTF / AWD / range (single entry, do not expand 40 sub-skills) | `ctf-sandbox/` |
+| **R46** | Native shield instrumentation / no-Frida / Xq signer reuse / SSL-pin callback patch | `native-instrumentation/` |
 | **R0** | Generic reverse / anti-debug / OLLVM / unknown binary | `reverse-engineering/` |
 
 No strong keyword hit → PRIMARY=`R0`, and prompt opening `routing.md` (ambiguity appendix, not a second router).

@@ -168,11 +168,29 @@ For each detected check, develop a targeted bypass:
 | **Tencent Legu** | `libshell*.so`, `libtxAppProtect.so` |
 | **360 Jiagu** | `libjiagu*.so` |
 
+## Real-case reference (canonical workspace)
+
+Live shield-breakdown cases live in the workspace
+`D:\OneDrive_nguyenchilam\OneDrive\CyberSecurity\Research\Mobile_security\App_protection\`.
+Consult the matching real case before / while analyzing a new app of the same shield class —
+offsets are build-specific but the decision tree generalizes.
+
+| Shield / app | Case dir | What to copy |
+|---|---|---|
+| BShield (VNEID, ZaloPay) | `BShield/docs/` | Xqsig/Xqcode signer reuse, SSL callback patch, injector/harness |
+| Zimperium + V-Key + AnTian (MB Bank) | `MB_Bank/` | multi-layer shield, server-hash GW934, `d_zdevice_event_submit` memory patch |
+| MoMo ProtectionSDK | `momo/` | passive frida-file scan, `process_vm_readv` scanner |
+| DexProtector | `dexprotector/` | packer notes |
+| V-Key V-OS | `vkey-vos/` | V-Key notes |
+
+Read `_agent_worklog/TODO.md` for the current open state before starting a new case.
+
 ## Routing to Other Skills
 
 | Condition | Route To |
 |-----------|----------|
 | APK Java/Kotlin layer analysis | `apk-reverse` |
+| Shield detected + Frida rejected / server-hashes files / native Xq signer | `native-instrumentation` |
 | Native .so deep analysis | `ida-reverse` or `ghidra-reverse` |
 | Binary patching with radare2 | `radare2` |
 | WebView/hybrid JS analysis | `js-reverse` |
@@ -187,3 +205,15 @@ Before ending a session:
 2. Write session log to `_agent_worklog/sessions/YYYY-MM-DD_HH-MM.md`
 3. Commit any new scripts/tools to appropriate directory
 4. Note what the next session should start with
+
+## Task-complete self-check (MUST pass before claiming done)
+
+- [ ] Shield SDK identified (name/version) with evidence, or "unknown — needs analysis"
+- [ ] Detection→response chain mapped, and each part labelled **local** vs **server-side**
+      (a server-pushed flag is not cleared by a local patch)
+- [ ] SSL pinning layer(s) enumerated (Java / Conscrypt native / Flutter / second verifier)
+- [ ] Decision recorded: Frida OK vs must use native instrumentation (anti-frida strength)
+- [ ] A real app action produced observable proof (traffic decrypts / screen changes / sent flag),
+      not a catalog string
+- [ ] Build/offset recorded as lib+offset/VA and read-back verified live on the right pid
+- [ ] Workspace artifacts + session log updated; stray binaries removed from device
