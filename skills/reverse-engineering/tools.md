@@ -314,8 +314,25 @@ strings decoded/classes*.dex | grep -i flag
 
 ### Flutter APK (Blutter)
 
+Source clone: `D:\Tools\blutter` (blutter.py + scripts). Needs cmake >=3.20, ninja, MSVC cl, plus ICU + capstone dlls (fetched by `python scripts/init_env_win.py` into `external/` + `bin/`). On this Windows machine launch through the wrapper so MSVC env + cmake/ninja are on PATH:
+
+```bat
+:: D:\Tools\blutter\blutter.cmd sets vcvars64 + cmake + ninja, then calls blutter.py
+blutter.cmd path/to/app/lib/arm64-v8a out_dir
+:: first run builds dartvm + blutter.exe for the detected Dart version (slow)
+```
+
+Fallback without a full lib dir (no libflutter.so): pass `--dart-version 3.x.x_android_arm64` and point `indir` at the `libapp.so` file.
+
 ```bash
-# Run Blutter on arm64 build
+# generic (Linux/macOS)/ when MSVC env already present
+python3 blutter.py path/to/app/lib/arm64-v8a out_dir
+```
+
+Manual rebuild: `blutter.cmd path/to/lib/arm64-v8a out_dir --rebuild`.
+
+Bare Linux example kept for parity:
+```bash
 python3 blutter.py path/to/app/lib/arm64-v8a out_dir
 ```
 

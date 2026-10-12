@@ -146,6 +146,15 @@ Discovery reads the first `json` fence in this file. Prepend these fallbacks ahe
       ]
     },
     {
+      "name": "blutter",
+      "skill": "reverse-engineering",
+      "purpose": "Flutter AOT (libapp.so) RE. Source at D:\\Tools\\blutter; build via wrapper blutter.cmd (needs libapp.so or --dart-version)",
+      "fallbacks": [
+        { "type": "path", "value": "D:\\Tools\\blutter\\blutter.cmd" },
+        { "type": "path", "value": "D:\\Tools\\blutter\\blutter.py" }
+      ]
+    },
+    {
       "name": "analyzeHeadless",
       "skill": "ghidra-reverse",
       "purpose": "Ghidra headless",
