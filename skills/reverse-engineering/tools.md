@@ -314,27 +314,27 @@ strings decoded/classes*.dex | grep -i flag
 
 ### Flutter APK (Blutter)
 
-Source clone: `D:\Tools\blutter` (blutter.py + scripts). Needs cmake >=3.20, ninja, MSVC cl, plus ICU + capstone dlls (fetched by `python scripts/init_env_win.py` into `external/` + `bin/`). On this Windows machine launch through the wrapper so MSVC env + cmake/ninja are on PATH:
+**Đã cài sẵn trên máy này — dùng thẳng, không được mò lại cài đặt.**
+
+- Source: `D:\Tools\blutter`
+- Launcher: `D:\Tools\blutter\blutter.cmd` — wrapper tự set MSVC (vcvars64) + cmake + ninja rồi gọi `blutter.py`. Dùng file này, đừng gọi `python3 blutter.py` cứng.
+- Toolchain đã có: cmake 4.4.4 (`D:\Tools\_toolchain\cmake`), ninja 1.13.2 (`D:\Tools\_toolchain\ninja`), MSVC cl 14.42 (VS BuildTools 2022), ICU + capstone dll (`D:\Tools\blutter\bin`).
+- Cache build trong `D:\Tools\blutter\bin\blutter_dartvm<version>_android_arm64.exe` (hiện có bản 3.11.3). Version khác → wrapper tự clone + build 1 lần (vài phút), không cần thao tác tay.
+
+Chạy khi có thư mục chứa cả `libapp.so` + `libflutter.so` (đặt ở **root**, không phải `lib/arm64-v8a/`):
 
 ```bat
-:: D:\Tools\blutter\blutter.cmd sets vcvars64 + cmake + ninja, then calls blutter.py
-blutter.cmd path/to/app/lib/arm64-v8a out_dir
-:: first run builds dartvm + blutter.exe for the detected Dart version (slow)
+blutter.cmd <dir-chua-libapp-libflutter> <out_dir>
 ```
 
-Fallback without a full lib dir (no libflutter.so): pass `--dart-version 3.x.x_android_arm64` and point `indir` at the `libapp.so` file.
+Output: `asm/`, `objs.txt`, `pp.txt`, `blutter_frida.js`.
 
-```bash
-# generic (Linux/macOS)/ when MSVC env already present
-python3 blutter.py path/to/app/lib/arm64-v8a out_dir
+Nếu chỉ có `libapp.so` (không libflutter.so) — phải khai báo Dart version (đọc từ `libflutter.so` nếu có, hoặc `--dart-version`):
+```bat
+blutter.cmd <path>/libapp.so <out_dir> --dart-version 3.11.3_android_arm64
 ```
 
-Manual rebuild: `blutter.cmd path/to/lib/arm64-v8a out_dir --rebuild`.
-
-Bare Linux example kept for parity:
-```bash
-python3 blutter.py path/to/app/lib/arm64-v8a out_dir
-```
+> ⚠️ `libapp.so` bị pack/protect (VD MB Bank) → blutter dừng nhanh (`Invalid vm isolate snapshot seen`, `UnicodeDecodeError`). Không phải lỗi cài đặt — cần unpack/dump snapshot runtime (Frida/DeeDump) hoặc bản apk không bảo vệ.
 
 ### HarmonyOS HAP/ABC (abc-decompiler)
 

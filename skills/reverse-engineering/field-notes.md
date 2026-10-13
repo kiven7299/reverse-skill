@@ -109,7 +109,7 @@ wat2wasm main.wat -o patched.wasm # Text → binary
 `apktool d app.apk -o decoded/` for resources; `jadx app.apk` for Java decompilation. Check `decoded/res/values/strings.xml` for flags. See [tools.md](tools.md#android-apk).
 
 ### Flutter APK (Dart AOT)
-If `lib/arm64-v8a/libapp.so` + `libflutter.so` present, use [Blutter](https://github.com/worawit/blutter): `python3 blutter.py path/to/app/lib/arm64-v8a out_dir`. Outputs reconstructed Dart symbols + Frida script. On this Windows machine, build + run via `D:\Tools\blutter\blutter.cmd` (sets MSVC + cmake + ninja). First run compiles dartvm + blutter.exe for the detected Dart version — needs libapp.so present. See [tools.md](tools.md#flutter-apk-blutter).
+If `lib/arm64-v8a/libapp.so` (or standalone `libapp.so` + `libflutter.so`) present, use Blutter — **already installed**: `D:\Tools\blutter\blutter.cmd` (wrapper sets MSVC + cmake + ninja; do NOT hunt the install or call bare `python3 blutter.py`). Pass a dir containing both `libapp.so`+`libflutter.so` at root, or `libapp.so` with `--dart-version`. Outputs reconstructed Dart symbols + Frida script. Packed apps (e.g. MB Bank) fail with `Invalid vm isolate snapshot seen` → need runtime dump, not a reinstall. See [tools.md](tools.md#flutter-apk-blutter).
 
 ### .NET
 - dnSpy - debugging + decompilation

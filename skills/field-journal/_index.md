@@ -15,6 +15,7 @@
 
 ### APK / Android 逆向
 
+- [2026-10-12 MB Bank Flutter anti-RE（snapshot pack / symbol giả）](./2026-10-12_mbbank-flutter-anti-re.md)
 - [2026-08-20 Flutter AOT 服务端驱动广告去除（Blutter + 等长字符串替换）](./2026-08-20_apk-flutter-banner-ad-removal.md)
 - [2026-05-15-cellular-pro-mumu-ksad-fragment-fix](./2026-05-15-cellular-pro-mumu-ksad-fragment-fix.md)
 - [[种子] seed-008_apk-okhttp-ssl-pin-bypass](./seed-008_apk-okhttp-ssl-pin-bypass.md)
