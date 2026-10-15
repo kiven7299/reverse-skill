@@ -230,15 +230,19 @@ static int scan_and_patch(pid_t pid, const char *needle, size_t needle_len,
         ssize_t got = process_vm_readv(pid, &lo, 1, &ro, 1, 0);
         if (got <= 0) { free(buf); continue; }
 
+        char mem_path[64];
+        snprintf(mem_path, sizeof mem_path, "/proc/%d/mem", pid);
+        int wfd = open(mem_path, O_RDWR);
+        if (wfd < 0) { free(buf); continue; }
+
         for (ssize_t i = 0; i + (ssize_t)needle_len <= got; i++) {
             if (memcmp(buf + i, needle, needle_len) == 0) {
                 uint64_t addr = start + i + patch_offset;
-                int wfd = open("/proc/...", O_RDWR);  // open /proc/<pid>/mem
                 pwrite(wfd, patch, patch_len, (off_t)addr);
-                close(wfd);
                 hits++;
             }
         }
+        close(wfd);
         free(buf);
     }
     fclose(f);
