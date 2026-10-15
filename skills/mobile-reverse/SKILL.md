@@ -180,8 +180,8 @@ offsets are build-specific but the decision tree generalizes.
 | BShield (VNEID, ZaloPay) | `BShield/docs/` | Xqsig/Xqcode signer reuse, SSL callback patch, injector/harness |
 | Zimperium + V-Key + AnTian (MB Bank) | `MB_Bank/` | multi-layer shield, server-hash GW934, `d_zdevice_event_submit` memory patch |
 | MoMo ProtectionSDK | `momo/` | passive frida-file scan, `process_vm_readv` scanner |
-| DexProtector | `dexprotector/` | packer notes |
-| V-Key V-OS | `vkey-vos/` | V-Key notes |
+| DexProtector | *(not yet started)* | — |
+| V-Key V-OS | *(not yet started)* | — |
 
 Read `_agent_worklog/TODO.md` for the current open state before starting a new case.
 
