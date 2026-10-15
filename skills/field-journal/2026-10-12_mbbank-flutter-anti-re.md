@@ -5,7 +5,7 @@
 
 ## Tóm tắt
 
-MB Bank dùng Flutter **AOT arm64**, nhưng `libapp.so` được **pack/protect (MBCP — Mobile Bank Cyber Protection)** khiến bộ phân tích tĩnh Dart AOT (Blutter) không đọc được snapshot. Đây là chống-RE chủ đạo ở tầng Dart.
+MB Bank dùng Flutter **AOT arm64**, nhưng `libapp.so` được **pack/protect** khiến bộ phân tích tĩnh Dart AOT (Blutter) không đọc được snapshot. Đây là chống-RE chủ đạo ở tầng Dart.
 
 ## Cơ chế / dấu hiệu (bằng chứng)
 
