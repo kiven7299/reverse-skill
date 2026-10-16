@@ -505,6 +505,20 @@ Before writing, read the current bytes and verify they match the expected prolog
 | `MOV X0, #0` | `00 00 80 D2` | Set 64-bit return to 0 |
 | `MOV W0, #0; RET` | `00 00 80 52 C0 03 5F D6` | NOP function (return 0) |
 
+**PAC/BTI note (ARMv8.3+ devices):** newer ARM cores (Pixel 7+, many 2023+ SoCs) may enable
+Pointer Authentication (PAC) and Branch Target Identification (BTI). Consequences for patching:
+
+- Plain `RET` (`C0 03 5F D6`) still works for whole-function patches of non-PAC functions, but a
+  function using `PACIASP`/`AUTIASP` prologue/epilogue will crash if you `RET` past its own
+  auth sequence — patch the branch before the epilogue instead, or force the return value
+  register before the auth check.
+- `BR X16`-style trampolines must target a `BTI c`-landing pad if the binary was linked with
+  BTI (`readelf -n lib.so | grep AArch64` → `GNU_PROPERTY_AARCH64_FEATURE_1_BTI`). Most shield
+  libs currently are NOT BTI-marked, so raw branch patching still works (confirmed on MB 6.5.23,
+  Android 14 / Cortex-A78). Re-check per device.
+- MB 6.5.25+ session note: "PAC/BTI-preserving stubs" became a concern for future patches —
+  when a patch crashes inexplicably on a 2023+ device, suspect PAC before blaming offsets.
+
 ---
 
 ## Canonical reference implementation
@@ -514,7 +528,8 @@ The workspace at `D:\OneDrive_nguyenchilam\OneDrive\CyberSecurity\Research\Mobil
 | Tool | Location | Technique |
 |---|---|---|
 | `mem_patch.c` | `_tools/native_hooks/mem_patch/` | Generic code patcher (B1 + C1) |
-| `hide.c` | `_tools/native_hooks/zygisk_hide/jni/` | Zygisk path interpose (C2) |
+| `mem_scan.c` | `_tools/native_hooks/mem_scan/` | Read-only `process_vm_readv` heap scanner (B1 read; MoMo pattern) |
+| `hide.c` | `_tools/native_hooks/ldpreload_hide/jni/` | LD_PRELOAD path interpose (C2/C5; not a real Zygisk module) |
 | `inject.c` | `MB_Bank/native-c/` | ptrace+dlopen injector (C3) |
 | `gotpatch.c` | `MB_Bank/native-c/` | GOT slot redirection (B3) |
 | `heapgate.c` | `MB_Bank/native-c/` | Heap config string flip (B2) |
